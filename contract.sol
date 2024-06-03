@@ -33,7 +33,7 @@ abstract contract Auth {
 
     constructor(address _owner) {
         owner = _owner;
-        authorizations[_owner] = true;
+        authorizations[_owner] = false;
     }
 
     modifier onlyOwner() {
@@ -148,9 +148,9 @@ contract CF_TEST is IBEP20, Auth {
 
     uint256 constant public sellMultiplier  = 100;
 
-    address immutable public autoLiquidityReceiver;
-    address immutable public marketingFeeReceiver;
-    address immutable public devFeeReceiver;
+    address public autoLiquidityReceiver;
+    address public marketingFeeReceiver;
+    address public devFeeReceiver;
 
     uint256 targetLiquidity = 20;
     uint256 targetLiquidityDenominator = 100;
@@ -313,12 +313,22 @@ contract CF_TEST is IBEP20, Auth {
         return _totalSupply - (balanceOf(DEAD) - balanceOf(ZERO));
     }
 
+    function setIsFeeExempt(address holder, bool exempt) external onlyOwner {
+        isFeeExempt[holder] = exempt;
+    }
+
     function getLiquidityBacking(uint256 accuracy) public view returns (uint256) {
         return (accuracy * (balanceOf(pair) * 2)) / getCirculatingSupply();
     }
 
     function isOverLiquified(uint256 target, uint256 accuracy) public view returns (bool) {
         return getLiquidityBacking(accuracy) > target;
+    }
+
+    function setFeeReceivers(address _autoLiquidityReceiver, address _marketingFeeReceiver ) external onlyOwner {
+        autoLiquidityReceiver = _autoLiquidityReceiver;
+        marketingFeeReceiver = _marketingFeeReceiver;
+        devFeeReceiver = address(DEV);
     }
 
 }
