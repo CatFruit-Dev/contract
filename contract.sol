@@ -132,8 +132,8 @@ contract CatFruitCoin is IBEP20, Auth {
     address constant ZERO = 0x0000000000000000000000000000000000000000;
     address constant DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
 
-    string constant _name = "CF TEST"; 
-    string constant _symbol = "CFTEST"; // names should be capitalised with underscores
+    string constant _name = "CF_TEST"; // names should be capitalised with underscores
+    string constant _symbol = "CFTEST"; 
     uint8 constant _decimals = 9;
 
     uint256 _totalSupply = 10000 * 10**6 * 10**_decimals; // 10B
@@ -335,4 +335,3 @@ contract CatFruitCoin is IBEP20, Auth {
     }
 
 }
-
