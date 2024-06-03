@@ -10,7 +10,7 @@ https://cat-fruit.com
 
 */
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.18.0;
 
 /**
  * BEP20 standard interface.
@@ -175,11 +175,6 @@ contract CatFruitCoin is IBEP20, Auth {
 
         isFeeExempt[msg.sender] = true;
         isFeeExempt[address(DEV)] = true;
-
-        isDividendExempt[pair] = true;
-        isDividendExempt[address(this)] = true;
-        isDividendExempt[address(DEV)] = false;
-        isDividendExempt[DEAD] = true;
 
         autoLiquidityReceiver = msg.sender;
         marketingFeeReceiver = msg.sender;
