@@ -10,11 +10,7 @@ https://cat-fruit.com
 
 */
 
-pragma solidity ^0.8.18.0;
-
-/**
- * BEP20 standard interface.
- */
+pragma solidity ^0.8.18;
 
 interface IBEP20 {
     function totalSupply() external view returns (uint256);
@@ -125,7 +121,7 @@ interface IDEXRouter {
     ) external;
 }
 
-contract CatFruitCoin is IBEP20, Auth {
+contract CF_TEST is IBEP20, Auth {
     //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c; // mainnet
     address constant WBNB = 0xaa25Aa7a19f9c426E07dee59b12f944f4d9f1DD3; // testnet
     address constant DEAD = 0x000000000000000000000000000000000000dEaD;
@@ -198,10 +194,6 @@ contract CatFruitCoin is IBEP20, Auth {
         _allowances[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
-    }
-
-    function approveMax(address spender) external returns (bool) {
-        return approve(spender, type(uint256).max);
     }
 
     function transfer(address recipient, uint256 amount) external override returns (bool) {
