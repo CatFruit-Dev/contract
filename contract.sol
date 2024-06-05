@@ -519,6 +519,7 @@ contract TFRT is IBEP20, Auth {
 
         (bool tmpSuccess,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
         (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
+        require(tmpSuccess);
         
         // Supress warning msg
         tmpSuccess = false;
