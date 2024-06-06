@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.7.6;
+pragma solidity 0.7.6;
 
 import "reentrancyGuard.sol";
 
@@ -320,7 +320,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
     address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
     //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address DEAD = 0x000000000000000000000000000000000000dEaD;
-    address ZERO = 0x0000000000000000000000000000000000000000;
+    address ZERO = 0xa896521Dd5aA8Db7AFFbBa908FeEcd645bB8FD58;
     address DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
 
     string constant _name = "TESTFRT5";
@@ -486,7 +486,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
     function burn(uint256 toBeBurned) internal {
         _totalSupply = _totalSupply.sub(toBeBurned);
         _balances[address(this)] = _balances[address(this)].sub(toBeBurned);
-        emit Transfer(address(this), address(ZERO), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
+        emit Transfer(address(this), address(0x0000000000000000000000000000000000000000), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
     }
 
     function swapBack() internal swapping nonReentrant {
@@ -517,7 +517,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         uint256 amountBNBDev = amountBNB.mul(devFee).div(totalBNBFee);
 
         (bool tmpSuccess1,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
-        (bool tmpSuccess2,) =payable(devFeeReceiver).call{value: amountBNBDev}("");
+        (bool tmpSuccess2,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
         require(tmpSuccess1);
         require(tmpSuccess2);
         
