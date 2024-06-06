@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.6;
 
-import "reentrancy.sol";
+import "reentrancyGuard.sol";
 
 library SafeMath {
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
