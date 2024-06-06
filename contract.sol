@@ -1,8 +1,8 @@
-//
-
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.7.6;
+
+import "reentrancy.sol";
 
 library SafeMath {
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -147,7 +147,7 @@ interface IDividendDistributor {
     function process(uint256 gas) external;
 }
 
-contract DividendDistributor is IDividendDistributor {
+contract DividendDistributor is IDividendDistributor, ReentrancyGuard{
     using SafeMath for uint256;
 
     address _token;
@@ -205,7 +205,7 @@ contract DividendDistributor is IDividendDistributor {
         minDistribution = _minDistribution;
     }
 
-    function setShare(address shareholder, uint256 amount) external override onlyToken {
+    function setShare(address shareholder, uint256 amount) external override onlyToken nonReentrant {
         if(shares[shareholder].amount > 0){
             distributeDividend(shareholder);
         }
@@ -241,7 +241,7 @@ contract DividendDistributor is IDividendDistributor {
         dividendsPerShare = dividendsPerShare.add(dividendsPerShareAccuracyFactor.mul(amount).div(totalShares));
     }
 
-    function process(uint256 gas) external override onlyToken {
+    function process(uint256 gas) external override onlyToken nonReentrant {
         uint256 shareholderCount = shareholders.length;
 
         if(shareholderCount == 0) { return; }
@@ -262,8 +262,7 @@ contract DividendDistributor is IDividendDistributor {
 
             gasUsed = gasUsed.add(gasLeft.sub(gasleft()));
             gasLeft = gasleft();
-            currentIndex++;
-            iterations++;
+
         }
     }
     
@@ -272,7 +271,7 @@ contract DividendDistributor is IDividendDistributor {
                 && getUnpaidEarnings(shareholder) > minDistribution;
     }
 
-    function distributeDividend(address shareholder) internal {
+    function distributeDividend(address shareholder) internal nonReentrant {
         if(shares[shareholder].amount == 0){ return; }
 
         uint256 amount = getUnpaidEarnings(shareholder);
@@ -316,7 +315,7 @@ contract DividendDistributor is IDividendDistributor {
     }
 }
 
-contract TFRT is IBEP20, Auth {
+contract TFRT is IBEP20, Auth, ReentrancyGuard {
     using SafeMath for uint256;
     address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
     //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
