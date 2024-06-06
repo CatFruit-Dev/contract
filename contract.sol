@@ -2,8 +2,6 @@
 
 pragma solidity 0.8.26;
 
-import "reentrancyGuard.sol";
-
 library SafeMath {
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
         uint256 c = a + b;
@@ -82,7 +80,7 @@ abstract contract Auth {
     }
 
     function renounceOwnership() public virtual onlyOwner {
-    transferOwnership(payable(address(0x0000000000000000000000000000000000000000)));
+    transferOwnership(payable(address(0)));
     }
 
     event OwnershipTransferred(address owner);
@@ -147,7 +145,7 @@ interface IDividendDistributor {
     function process(uint256 gas) external;
 }
 
-contract DividendDistributor is IDividendDistributor, ReentrancyGuard{
+contract DividendDistributor is IDividendDistributor {
     using SafeMath for uint256;
 
     address _token;
@@ -205,7 +203,7 @@ contract DividendDistributor is IDividendDistributor, ReentrancyGuard{
         minDistribution = _minDistribution;
     }
 
-    function setShare(address shareholder, uint256 amount) external override onlyToken nonReentrant {
+    function setShare(address shareholder, uint256 amount) external override onlyToken {
         if(shares[shareholder].amount > 0){
             distributeDividend(shareholder);
         }
@@ -241,7 +239,7 @@ contract DividendDistributor is IDividendDistributor, ReentrancyGuard{
         dividendsPerShare = dividendsPerShare.add(dividendsPerShareAccuracyFactor.mul(amount).div(totalShares));
     }
 
-    function process(uint256 gas) external override onlyToken nonReentrant {
+    function process(uint256 gas) external override onlyToken {
         uint256 shareholderCount = shareholders.length;
 
         if(shareholderCount == 0) { return; }
@@ -262,7 +260,8 @@ contract DividendDistributor is IDividendDistributor, ReentrancyGuard{
 
             gasUsed = gasUsed.add(gasLeft.sub(gasleft()));
             gasLeft = gasleft();
-
+            currentIndex++;
+            iterations++;
         }
     }
     
@@ -271,7 +270,7 @@ contract DividendDistributor is IDividendDistributor, ReentrancyGuard{
                 && getUnpaidEarnings(shareholder) > minDistribution;
     }
 
-    function distributeDividend(address shareholder) internal nonReentrant {
+    function distributeDividend(address shareholder) internal {
         if(shares[shareholder].amount == 0){ return; }
 
         uint256 amount = getUnpaidEarnings(shareholder);
@@ -315,12 +314,12 @@ contract DividendDistributor is IDividendDistributor, ReentrancyGuard{
     }
 }
 
-contract TFRT is IBEP20, Auth, ReentrancyGuard {
+contract TFRT is IBEP20, Auth {
     using SafeMath for uint256;
     address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
     //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address DEAD = 0x000000000000000000000000000000000000dEaD;
-    address ZERO = 0xa896521Dd5aA8Db7AFFbBa908FeEcd645bB8FD58;
+    address ZERO = 0x0000000000000000000000000000000000000000;
     address DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
 
     string constant _name = "TESTFRT5";
@@ -368,7 +367,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         //router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         pair = IDEXFactory(router.factory()).createPair(WBNB, address(this));
-        _allowances[address(this)][address(router)] = type(uint256).max;
+        _allowances[address(this)][address(router)] = 2**256 - 1;
 
         distributor = new DividendDistributor(address(router));
 
@@ -409,21 +408,14 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
-        if(_allowances[sender][msg.sender] != type(uint256).max) {
+        if(_allowances[sender][msg.sender] != 2**256 - 1){
             _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount, "Insufficient Allowance");
         }
 
         return _transferFrom(sender, recipient, amount);
     }
 
-    function shouldSwapBack() internal view returns (bool) {
-        return msg.sender != pair
-        && !inSwap
-        && swapEnabled
-        && _balances[address(this)] >= swapThreshold;
-    }
-
-    function _transferFrom(address sender, address recipient, uint256 amount) internal nonReentrant returns (bool) {
+    function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
         if(inSwap){ return _basicTransfer(sender, recipient, amount); }
 
         if(!authorizations[sender] && !authorizations[recipient]){
@@ -486,10 +478,18 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
     function burn(uint256 toBeBurned) internal {
         _totalSupply = _totalSupply.sub(toBeBurned);
         _balances[address(this)] = _balances[address(this)].sub(toBeBurned);
-        emit Transfer(address(this), address(0x0000000000000000000000000000000000000000), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
+        emit Transfer(address(this), address(ZERO), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
     }
 
-    function swapBack() internal swapping nonReentrant {
+    function shouldSwapBack() internal view returns (bool) {
+        return msg.sender != pair
+        && !inSwap
+        && swapEnabled
+        && _balances[address(this)] >= swapThreshold;
+    }
+
+    // need to fix this. this will only swap the ammount of tokens in the swap threshold. actually, we want to swap all so that we dont have tokens sitting in the contract
+    function swapBack() internal swapping {
         uint256 dynamicLiquidityFee = isOverLiquified(targetLiquidity, targetLiquidityDenominator) ? 0 : liquidityFee;
         uint256 amountToLiquify = swapThreshold.mul(dynamicLiquidityFee).div(totalFee.sub(burnTax)).div(2);
         uint256 amountToSwap = swapThreshold.sub(amountToLiquify);
@@ -516,16 +516,12 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         uint256 amountBNBMarketing = amountBNB.mul(marketingFee).div(totalBNBFee);
         uint256 amountBNBDev = amountBNB.mul(devFee).div(totalBNBFee);
 
-        (bool tmpSuccess1,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing, gas: 30000}("");
-        (bool tmpSuccess2,) = payable(devFeeReceiver).call{value: amountBNBDev, gas: 30000}("");
-        require(tmpSuccess1);
-        require(tmpSuccess2);
+        (bool tmpSuccess,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
+        (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
+        require(tmpSuccess);
         
         // Supress warning msg
-        tmpSuccess1 = false;
-        tmpSuccess2 = false;
-        require(tmpSuccess1);
-        require(tmpSuccess2);
+        tmpSuccess = false;
 
         if(amountToLiquify > 0){
             router.addLiquidityETH{value: amountBNBLiquidity}(
@@ -537,6 +533,16 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
                 block.timestamp
             );
             emit AutoLiquify(amountBNBLiquidity, amountToLiquify);
+        }
+    }
+
+    function setIsDividendExempt(address holder, bool exempt) external onlyOwner {
+        require(holder != address(this) && holder != pair);
+        isDividendExempt[holder] = exempt;
+        if(exempt){
+            distributor.setShare(holder, 0);
+        }else{
+            distributor.setShare(holder, _balances[holder]);
         }
     }
 
