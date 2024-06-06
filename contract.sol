@@ -416,6 +416,13 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         return _transferFrom(sender, recipient, amount);
     }
 
+    function shouldSwapBack() internal view returns (bool) {
+        return msg.sender != pair
+        && !inSwap
+        && swapEnabled
+        && _balances[address(this)] >= swapThreshold;
+    }
+
     function _transferFrom(address sender, address recipient, uint256 amount) internal nonReentrant returns (bool) {
         if(inSwap){ return _basicTransfer(sender, recipient, amount); }
 
@@ -482,13 +489,6 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         emit Transfer(address(this), address(ZERO), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
     }
 
-    function shouldSwapBack() internal view returns (bool) {
-        return msg.sender != pair
-        && !inSwap
-        && swapEnabled
-        && _balances[address(this)] >= swapThreshold;
-    }
-
     function swapBack() internal swapping nonReentrant {
         uint256 dynamicLiquidityFee = isOverLiquified(targetLiquidity, targetLiquidityDenominator) ? 0 : liquidityFee;
         uint256 amountToLiquify = swapThreshold.mul(dynamicLiquidityFee).div(totalFee.sub(burnTax)).div(2);
@@ -518,7 +518,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
 
         (bool tmpSuccess,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
         (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
-        require(tmpSuccess);
+        //require(tmpSuccess);
         
         // Supress warning msg
         tmpSuccess = false;
