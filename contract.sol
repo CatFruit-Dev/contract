@@ -522,6 +522,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         
         // Supress warning msg
         tmpSuccess = false;
+        require(tmpSuccess);
 
         if(amountToLiquify > 0){
             router.addLiquidityETH{value: amountBNBLiquidity}(
