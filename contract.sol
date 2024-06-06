@@ -489,7 +489,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         && _balances[address(this)] >= swapThreshold;
     }
 
-    function swapBack() internal swapping {
+    function swapBack() internal swapping nonReentrant {
         uint256 dynamicLiquidityFee = isOverLiquified(targetLiquidity, targetLiquidityDenominator) ? 0 : liquidityFee;
         uint256 amountToLiquify = swapThreshold.mul(dynamicLiquidityFee).div(totalFee.sub(burnTax)).div(2);
         uint256 amountToSwap = swapThreshold.sub(amountToLiquify);
