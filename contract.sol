@@ -536,16 +536,6 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         }
     }
 
-    function setIsDividendExempt(address holder, bool exempt) external onlyOwner {
-        require(holder != address(this) && holder != pair);
-        isDividendExempt[holder] = exempt;
-        if(exempt){
-            distributor.setShare(holder, 0);
-        }else{
-            distributor.setShare(holder, _balances[holder]);
-        }
-    }
-
     function setIsFeeExempt(address holder, bool exempt) external onlyOwner {
         isFeeExempt[holder] = exempt;
     }
