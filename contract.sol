@@ -485,14 +485,13 @@ contract TFRT is IBEP20, Auth {
         return msg.sender != pair
         && !inSwap
         && swapEnabled
-        && _balances[address(this)] >= swapThreshold;
+        && _balances[address(this)] >= swapThreshold; 
     }
-
-    // need to fix this. this will only swap the ammount of tokens in the swap threshold. actually, we want to swap all so that we dont have tokens sitting in the contract
+    
     function swapBack() internal swapping {
         uint256 dynamicLiquidityFee = isOverLiquified(targetLiquidity, targetLiquidityDenominator) ? 0 : liquidityFee;
         uint256 amountToLiquify = swapThreshold.mul(dynamicLiquidityFee).div(totalFee.sub(burnTax)).div(2);
-        uint256 amountToSwap = swapThreshold.sub(amountToLiquify);
+        uint256 amountToSwap = address(this).balance.sub(amountToLiquify); // clear the contract of tokens
 
         address[] memory path = new address[](2);
         path[0] = address(this);
@@ -516,12 +515,16 @@ contract TFRT is IBEP20, Auth {
         uint256 amountBNBMarketing = amountBNB.mul(marketingFee).div(totalBNBFee);
         uint256 amountBNBDev = amountBNB.mul(devFee).div(totalBNBFee);
 
-        (bool tmpSuccess,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
-        (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
-        require(tmpSuccess);
+        (bool tmpSuccess1,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
+        (bool tmpSuccess2,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
+        require(tmpSuccess1);
+        require(tmpSuccess2);
         
         // Supress warning msg
-        tmpSuccess = false;
+        tmpSuccess1 = false;
+        tmpSuccess2 = false;
+        require(tmpSuccess1);
+        require(tmpSuccess2);
 
         if(amountToLiquify > 0){
             router.addLiquidityETH{value: amountBNBLiquidity}(
