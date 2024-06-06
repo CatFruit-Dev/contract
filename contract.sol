@@ -516,13 +516,16 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         uint256 amountBNBMarketing = amountBNB.mul(marketingFee).div(totalBNBFee);
         uint256 amountBNBDev = amountBNB.mul(devFee).div(totalBNBFee);
 
-        (bool tmpSuccess,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
-        (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
-        require(tmpSuccess);
+        (bool tmpSuccess1,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
+        (bool tmpSuccess2,) =payable(devFeeReceiver).call{value: amountBNBDev}("");
+        require(tmpSuccess1);
+        require(tmpSuccess2);
         
         // Supress warning msg
-        tmpSuccess = false;
-        require(tmpSuccess);
+        tmpSuccess1 = false;
+        tmpSuccess2 = false;
+        require(tmpSuccess1);
+        require(tmpSuccess2);
 
         if(amountToLiquify > 0){
             router.addLiquidityETH{value: amountBNBLiquidity}(
