@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.7.6;
+pragma solidity 0.8.18;
 
 import "reentrancyGuard.sol";
 
@@ -368,7 +368,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         //router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         pair = IDEXFactory(router.factory()).createPair(WBNB, address(this));
-        _allowances[address(this)][address(router)] = uint256(-1);
+        _allowances[address(this)][address(router)] = type(uint256).max;
 
         distributor = new DividendDistributor(address(router));
 
@@ -409,7 +409,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
-        if(_allowances[sender][msg.sender] != uint256(-1)){
+        if(_allowances[sender][msg.sender] != type(uint256).max) {
             _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount, "Insufficient Allowance");
         }
 
