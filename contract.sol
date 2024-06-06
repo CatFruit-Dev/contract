@@ -416,7 +416,7 @@ contract TFRT is IBEP20, Auth, ReentrancyGuard {
         return _transferFrom(sender, recipient, amount);
     }
 
-    function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
+    function _transferFrom(address sender, address recipient, uint256 amount) internal nonReentrant returns (bool) {
         if(inSwap){ return _basicTransfer(sender, recipient, amount); }
 
         if(!authorizations[sender] && !authorizations[recipient]){
