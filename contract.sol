@@ -100,7 +100,7 @@ interface IDEXFactory {
 
 interface IDEXRouter {
     function factory() external pure returns (address);
-    function WETH() external pure returns (address);
+    function WBNB() external pure returns (address);
 
     function addLiquidity(
         address tokenA,
@@ -420,6 +420,10 @@ contract TFRT is IBEP20, Auth {
 
     function transfer(address recipient, uint256 amount) external override returns (bool) {
         return _transferFrom(msg.sender, recipient, amount);
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        return _transferFrom(sender, recipient, amount);
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
