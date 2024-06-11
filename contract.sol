@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: MIT
 
+/*
+NOTES
+Check swap function works
+
+if possible, remove transfer from and transfer from view / completely
+
+*/
+
 pragma solidity 0.8.26;
 
 library SafeMath {
@@ -48,7 +56,6 @@ interface IBEP20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
     function allowance(address _owner, address spender) external view returns (uint256);
     function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
@@ -158,7 +165,7 @@ contract DividendDistributor is IDividendDistributor {
 
     //IBEP20 RWRD = IBEP20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
     //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c; // BNB
-    IBEP20 RWRD = IBEP20(0x78867BbEeF44f2326bF8DDd1941a4439382EF2A7); // testnet busd rew
+    IBEP20 RWRD = IBEP20(0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd); // testnet rew
     address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet WBNB
     IDEXRouter router;
 
@@ -194,7 +201,7 @@ contract DividendDistributor is IDividendDistributor {
         router = _router != address(0)
             ? IDEXRouter(_router)
             :router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
-            //: IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+            //:router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         _token = msg.sender;
     }
 
@@ -324,9 +331,9 @@ contract TFRT is IBEP20, Auth {
 
     string constant _name = "TESTFRT5";
     string constant _symbol = "TFRT5";
-    uint8 constant _decimals = 9;
+    uint8 constant _decimals = 0;
 
-    uint256 _totalSupply = 10000 * 10**6 * 10**_decimals; //10B with 9 decimal places
+    uint256 _totalSupply = 10000 * 10**6; //10B with 9 decimal places
 
     mapping (address => uint256) _balances;
     mapping (address => mapping (address => uint256)) _allowances;
@@ -347,9 +354,6 @@ contract TFRT is IBEP20, Auth {
     address public marketingFeeReceiver;
     address public devFeeReceiver;
 
-    uint256 targetLiquidity = 20;
-    uint256 targetLiquidityDenominator = 100;
-
     IDEXRouter public router;
     address public pair;
 
@@ -359,25 +363,35 @@ contract TFRT is IBEP20, Auth {
     uint256 distributorGas = 500000;
 
     bool public swapEnabled = true;
-    uint256 public swapThreshold = _totalSupply * 30 / 10000;
+    uint256 public swapThreshold = _totalSupply * 2 / 10000;
     bool inSwap;
     modifier swapping() { inSwap = true; _; inSwap = false; }
 
     constructor () Auth(msg.sender) {
         //router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
-        pair = IDEXFactory(router.factory()).createPair(WBNB, address(this));
-        _allowances[address(this)][address(router)] = 2**256 - 1;
+        pair = IDEXFactory(router.factory()).createPair(address(this), WBNB);
+
+        _allowances[address(this)][address(router)] = uint256(2**256 - 1);
 
         distributor = new DividendDistributor(address(router));
 
         isFeeExempt[msg.sender] = true;
         isFeeExempt[address(DEV)] = true;
+        isFeeExempt[ZERO] = true;
+        isFeeExempt[DEAD] = true;
+        isFeeExempt[address(this)] = true;
+        isFeeExempt[marketingFeeReceiver] = true;
+        isFeeExempt[autoLiquidityReceiver] = true;
+        isFeeExempt[address(router)] = true;
 
-        isDividendExempt[pair] = true;
         isDividendExempt[address(this)] = true;
         isDividendExempt[address(DEV)] = false;
         isDividendExempt[DEAD] = true;
+        isDividendExempt[ZERO] = true;
+        isDividendExempt[autoLiquidityReceiver] = false;
+        isDividendExempt[marketingFeeReceiver] = false;
+        isDividendExempt[address(router)] = true;
 
         autoLiquidityReceiver = msg.sender;
         marketingFeeReceiver = msg.sender;
@@ -407,14 +421,6 @@ contract TFRT is IBEP20, Auth {
         return _transferFrom(msg.sender, recipient, amount);
     }
 
-    function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
-        if(_allowances[sender][msg.sender] != 2**256 - 1){
-            _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount, "Insufficient Allowance");
-        }
-
-        return _transferFrom(sender, recipient, amount);
-    }
-
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
         if(inSwap){ return _basicTransfer(sender, recipient, amount); }
 
@@ -424,12 +430,12 @@ contract TFRT is IBEP20, Auth {
 
         if (!authorizations[sender] && recipient != address(this)  && recipient != address(DEAD) && recipient != pair && recipient != marketingFeeReceiver && recipient != devFeeReceiver  && recipient != autoLiquidityReceiver){
             uint256 heldTokens = balanceOf(recipient);
-            require((heldTokens + amount) <= _totalSupply,"Total Holding is currently limited, you can not buy that much.");}
+            require((heldTokens + amount) <= _totalSupply,"Total holding is currently limited, you cannot buy that much.");}
 
         if(shouldSwapBack()){ swapBack(); }
 
         //Exchange tokens
-        _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance");
+        _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance for '_Transfer From'");
 
         uint256 amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == pair)) : amount;
         _balances[recipient] = _balances[recipient].add(amountReceived);
@@ -450,8 +456,8 @@ contract TFRT is IBEP20, Auth {
     }
     
     function _basicTransfer(address sender, address recipient, uint256 amount) internal returns (bool) {
-        _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance");
-        _balances[recipient] = _balances[recipient].add(amount);
+        _balances[sender] = IBEP20(address(this)).balanceOf(address(this)).sub(amount, "Insufficient balance for 'Basic transfer'");
+        _balances[recipient] = IBEP20(address(this)).balanceOf(address(this)).add(amount);
         emit Transfer(sender, recipient, amount);
         return true;
     }
@@ -461,37 +467,34 @@ contract TFRT is IBEP20, Auth {
     }
 
     function takeFee(address sender, uint256 amount, bool isSell) internal returns (uint256) {
-        
         uint256 multiplier = isSell ? sellMultiplier : 100;
+        require(amount > 0, "No fees can be taken because amount is empty");
         uint256 feeAmount = amount.mul(totalFee).mul(multiplier).div(feeDenominator * 100);
-        uint256 toBeBurned = feeAmount.div(totalFee.sub(burnTax));
+        uint256 toBeBurned = amount.mul(burnTax).mul(multiplier).div(feeDenominator * 100);
+
         uint256 addToBal = feeAmount.sub(toBeBurned);
 
         _balances[address(this)] = _balances[address(this)].add(addToBal);
         emit Transfer(sender, address(this), addToBal);
 
-        burn(toBeBurned);
-
-        return amount.sub(feeAmount);
-    }
-
-    function burn(uint256 toBeBurned) internal {
         _totalSupply = _totalSupply.sub(toBeBurned);
-        _balances[address(this)] = _balances[address(this)].sub(toBeBurned);
         emit Transfer(address(this), address(ZERO), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
+
+        return amount;
     }
 
     function shouldSwapBack() internal view returns (bool) {
         return msg.sender != pair
         && !inSwap
         && swapEnabled
-        && _balances[address(this)] >= swapThreshold; 
+        && _balances[address(this)] >= swapThreshold;
     }
-    
-    function swapBack() internal swapping {
-        uint256 dynamicLiquidityFee = isOverLiquified(targetLiquidity, targetLiquidityDenominator) ? 0 : liquidityFee;
-        uint256 amountToLiquify = swapThreshold.mul(dynamicLiquidityFee).div(totalFee.sub(burnTax)).div(2);
-        uint256 amountToSwap = address(this).balance.sub(amountToLiquify); // clear the contract of tokens
+
+    // need to fix this. this will only swap the ammount of tokens in the swap threshold.
+    // actually, we want to swap all so that we dont have tokens sitting in the contract
+    function swapBack() public swapping {
+        uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)); // get all tokens from token address
+        require(amountToSwap > swapThreshold, "Not enough to swap");
 
         address[] memory path = new address[](2);
         path[0] = address(this);
@@ -506,37 +509,36 @@ contract TFRT is IBEP20, Auth {
             address(this),
             block.timestamp
         );
-
+    
         uint256 amountBNB = address(this).balance.sub(balanceBefore);
 
-        uint256 totalBNBFee = totalFee.sub(dynamicLiquidityFee.div(2)).sub(burnTax);
-        
-        uint256 amountBNBLiquidity = amountBNB.mul(dynamicLiquidityFee).div(totalBNBFee).div(2);
-        uint256 amountBNBMarketing = amountBNB.mul(marketingFee).div(totalBNBFee);
-        uint256 amountBNBDev = amountBNB.mul(devFee).div(totalBNBFee);
+        require(amountBNB > 0, "Nothing in the balance. Balance = 'amountBNB'");
 
-        (bool tmpSuccess1,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
-        (bool tmpSuccess2,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
-        require(tmpSuccess1);
-        require(tmpSuccess2);
+        // spread the pool costs relative to tax values
+        uint256 amountBNBLiquidity = amountBNB.div((totalFee).sub(burnTax)).mul(liquidityFee);
+        uint256 amountBNBMarketing = amountBNB.div((totalFee).sub(burnTax)).mul(marketingFee);
+        uint256 amountBNBDev = amountBNB.div((totalFee).sub(burnTax)).mul(devFee);
+
+        (bool tmpSuccess,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
+        (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
+        require(tmpSuccess, "Tax went unpaid to dev and marketing accounts");
         
         // Supress warning msg
-        tmpSuccess1 = false;
-        tmpSuccess2 = false;
-        require(tmpSuccess1);
-        require(tmpSuccess2);
-
-        if(amountToLiquify > 0){
+        tmpSuccess = false;
+        
+        require(amountBNBLiquidity > 0, "No BNB for liquidity pool to make swap");
+        if(amountBNBLiquidity > 0){
             router.addLiquidityETH{value: amountBNBLiquidity}(
                 address(this),
-                amountToLiquify,
+                amountBNBLiquidity,
                 0,
                 0,
                 autoLiquidityReceiver,
                 block.timestamp
             );
-            emit AutoLiquify(amountBNBLiquidity, amountToLiquify);
+            emit AutoLiquify(amountBNBLiquidity, amountBNBLiquidity);
         }
+        
     }
 
     function setIsDividendExempt(address holder, bool exempt) external onlyOwner {
@@ -560,15 +562,7 @@ contract TFRT is IBEP20, Auth {
     }
     
     function getCirculatingSupply() public view returns (uint256) {
-        return _totalSupply.sub(balanceOf(DEAD)).sub(balanceOf(ZERO));
-    }
-
-    function getLiquidityBacking(uint256 accuracy) public view returns (uint256) {
-        return accuracy.mul(balanceOf(pair).mul(2)).div(getCirculatingSupply());
-    }
-
-    function isOverLiquified(uint256 target, uint256 accuracy) public view returns (bool) {
-        return getLiquidityBacking(accuracy) > target;
+        return _totalSupply;
     }
 
 event AutoLiquify(uint256 amountBNB, uint256 amountBOG);
