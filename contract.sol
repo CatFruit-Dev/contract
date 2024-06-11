@@ -3,8 +3,9 @@
 /*
 NOTES
 Check swap function works
+remove safemath, solidity 8.26 doesnt require it
+if possible, remove transfer from view / completely
 
-if possible, remove transfer from and transfer from view / completely
 
 */
 
