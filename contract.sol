@@ -2,15 +2,8 @@
 
 /*
 NOTES
-split and distribute doesnt seem to work - inufficient ballance for _tranfer from for liquidity pool
-    -   swap function works and leaves the remaining tokens for the liquidity pool
-    -   transfer from fails after this point
-    
-                            TEST AGAIN ADJUSTMENTS MADE
-
 remove safemath, solidity 8.26 doesnt require it
 if possible, remove transfer from view / completely
-
 
 */
 
@@ -500,7 +493,7 @@ contract TFRT is IBEP20, Auth {
         && _balances[address(this)] >= swapThreshold;
     }
 
-    function swapBack(uint256 amount) public swapping {
+    function swapBack(uint256 amount) internal swapping {
         uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)).div((totalFee).sub(burnTax)).mul(liquidityFee).div(2);
 
         uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)).sub(amountTokensForLiquidity); // get all tokens from token address
@@ -522,10 +515,10 @@ contract TFRT is IBEP20, Auth {
 
         amount = address(this).balance;
         
-        //splitAndDistribute();
+        splitAndDistribute();
     }
 
-    function splitAndDistribute() public {
+    function splitAndDistribute() internal {
 
         uint256 amountBNB = address(this).balance;
         require(amountBNB > 0, "Nothing being held");
