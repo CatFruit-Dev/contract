@@ -338,8 +338,8 @@ contract TFRT is IBEP20, Auth {
     address ZERO = 0x0000000000000000000000000000000000000000;
     address DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
 
-    string constant _name = "TESTFRT5";
-    string constant _symbol = "TFRT5";
+    string constant _name = "TEST6";
+    string constant _symbol = "T6";
     uint8 constant _decimals = 0;
 
     uint256 _totalSupply = 10000 * 10**6; //10B with 9 decimal places
@@ -372,7 +372,7 @@ contract TFRT is IBEP20, Auth {
     uint256 distributorGas = 500000;
 
     bool public swapEnabled = true;
-    uint256 public swapThreshold = _totalSupply * 5 / 100000;
+    uint256 public swapThreshold = _totalSupply * 1 / 10000;
     bool inSwap;
     modifier swapping() { inSwap = true; _; inSwap = false; }
 
