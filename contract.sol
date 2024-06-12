@@ -2,7 +2,12 @@
 
 /*
 NOTES
-split and distribute doesnt seem to work - inufficient ballance for _tranfer from
+split and distribute doesnt seem to work - inufficient ballance for _tranfer from for liquidity pool
+    -   swap function works and leaves the remaining tokens for the liquidity pool
+    -   transfer from fails after this point
+    
+                            TEST AGAIN ADJUSTMENTS MADE
+
 remove safemath, solidity 8.26 doesnt require it
 if possible, remove transfer from view / completely
 
@@ -528,7 +533,7 @@ contract TFRT is IBEP20, Auth {
         uint256 TokensForLiqPool = IBEP20(address(this)).balanceOf(address(this));
 
         // spread the pool costs relative to tax values
-        uint256 amountBNBLiquidity = amountBNB.div((totalFee).sub(burnTax)).mul(liquidityFee).div(2);
+        uint256 amountBNBLiquidity = amountBNB.div((totalFee).sub(burnTax)).mul(liquidityFee);
         uint256 amountBNBMarketing = amountBNB.div((totalFee).sub(burnTax)).mul(marketingFee);
         uint256 amountBNBDev = amountBNB.div((totalFee).sub(burnTax)).mul(devFee);
 
@@ -542,7 +547,7 @@ contract TFRT is IBEP20, Auth {
         require(amountBNBLiquidity > 0, "No BNB for liquidity pool to make swap");
         if(amountBNBLiquidity > 0){
             IBEP20(address(this)).approve(address(router), amountBNBLiquidity);
-            router.addLiquidityETH{value: amountBNBLiquidity}(
+            router.addLiquidityETH{value: TokensForLiqPool}(
                 address(this),
                 amountBNBLiquidity,
                 0,
