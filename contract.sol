@@ -2,7 +2,7 @@
 
 /*
 NOTES
-Check swap function works
+split and distribute doesnt seem to work - inufficient ballance for _tranfer from
 remove safemath, solidity 8.26 doesnt require it
 if possible, remove transfer from view / completely
 
@@ -437,7 +437,7 @@ contract TFRT is IBEP20, Auth {
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"Total holding is currently limited, you cannot buy that much.");}
 
-        if(shouldSwapBack()){ swapBack(); }
+        if(shouldSwapBack()){ swapBack(amount); }
 
         //Exchange tokens
         _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance for '_Transfer From'");
@@ -461,8 +461,8 @@ contract TFRT is IBEP20, Auth {
     }
     
     function _basicTransfer(address sender, address recipient, uint256 amount) internal returns (bool) {
-        _balances[sender] = IBEP20(address(this)).balanceOf(address(this)).sub(amount, "Insufficient balance for 'Basic transfer'");
-        _balances[recipient] = IBEP20(address(this)).balanceOf(address(this)).add(amount);
+        _balances[sender] = _balances[sender].sub(amount, "Insufficient balance for 'Basic transfer'");
+        _balances[recipient] = _balances[recipient].add(amount);
         emit Transfer(sender, recipient, amount);
         return true;
     }
@@ -485,7 +485,7 @@ contract TFRT is IBEP20, Auth {
         _totalSupply = _totalSupply.sub(toBeBurned);
         emit Transfer(address(this), address(ZERO), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
 
-        return amount;
+        return amount.sub(feeAmount);
     }
 
     function shouldSwapBack() internal view returns (bool) {
@@ -495,17 +495,17 @@ contract TFRT is IBEP20, Auth {
         && _balances[address(this)] >= swapThreshold;
     }
 
-    // need to fix this. this will only swap the ammount of tokens in the swap threshold.
-    // actually, we want to swap all so that we dont have tokens sitting in the contract
-    function swapBack() public swapping {
-        uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)); // get all tokens from token address
-        require(amountToSwap > swapThreshold, "Not enough to swap");
+    function swapBack(uint256 amount) public swapping {
+        uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)).div((totalFee).sub(burnTax)).mul(liquidityFee).div(2);
+
+        uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)).sub(amountTokensForLiquidity); // get all tokens from token address
+        require(amountToSwap > swapThreshold, "Not enough tokens held in reserves to swap");
 
         address[] memory path = new address[](2);
         path[0] = address(this);
         path[1] = WBNB;
 
-        uint256 balanceBefore = address(this).balance;
+        IBEP20(address(this)).approve(address(router), amountToSwap);
 
         router.swapExactTokensForETHSupportingFeeOnTransferTokens(
             amountToSwap,
@@ -514,13 +514,21 @@ contract TFRT is IBEP20, Auth {
             address(this),
             block.timestamp
         );
-    
-        uint256 amountBNB = address(this).balance.sub(balanceBefore);
 
-        require(amountBNB > 0, "Nothing in the balance. Balance = 'amountBNB'");
+        amount = address(this).balance;
+        
+        //splitAndDistribute();
+    }
+
+    function splitAndDistribute() public {
+
+        uint256 amountBNB = address(this).balance;
+        require(amountBNB > 0, "Nothing being held");
+
+        uint256 TokensForLiqPool = IBEP20(address(this)).balanceOf(address(this));
 
         // spread the pool costs relative to tax values
-        uint256 amountBNBLiquidity = amountBNB.div((totalFee).sub(burnTax)).mul(liquidityFee);
+        uint256 amountBNBLiquidity = amountBNB.div((totalFee).sub(burnTax)).mul(liquidityFee).div(2);
         uint256 amountBNBMarketing = amountBNB.div((totalFee).sub(burnTax)).mul(marketingFee);
         uint256 amountBNBDev = amountBNB.div((totalFee).sub(burnTax)).mul(devFee);
 
@@ -533,6 +541,7 @@ contract TFRT is IBEP20, Auth {
         
         require(amountBNBLiquidity > 0, "No BNB for liquidity pool to make swap");
         if(amountBNBLiquidity > 0){
+            IBEP20(address(this)).approve(address(router), amountBNBLiquidity);
             router.addLiquidityETH{value: amountBNBLiquidity}(
                 address(this),
                 amountBNBLiquidity,
@@ -541,10 +550,11 @@ contract TFRT is IBEP20, Auth {
                 autoLiquidityReceiver,
                 block.timestamp
             );
-            emit AutoLiquify(amountBNBLiquidity, amountBNBLiquidity);
+            emit AutoLiquify(amountBNBLiquidity, TokensForLiqPool);
         }
-        
+
     }
+
 
     function setIsDividendExempt(address holder, bool exempt) external onlyOwner {
         require(holder != address(this) && holder != pair);
@@ -571,5 +581,4 @@ contract TFRT is IBEP20, Auth {
     }
 
 event AutoLiquify(uint256 amountBNB, uint256 amountBOG);
-
 }
