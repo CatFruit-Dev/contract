@@ -2,46 +2,12 @@
 
 /*
 NOTES
+need to add reentrancyguard
+need to test after removing safemath
 
 */
 
 pragma solidity 0.8.26;
-
-library SafeMath {
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
-
-        return c;
-    }
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, "SafeMath: subtraction overflow");
-    }
-    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
-
-        return c;
-    }
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-
-        return c;
-    }
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
-    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        return c;
-    }
-}
 
 interface IBEP20 {
     function totalSupply() external view returns (uint256);
@@ -162,8 +128,6 @@ interface IDividendDistributor {
 }
 
 contract DividendDistributor is IDividendDistributor {
-    using SafeMath for uint256;
-
     address _token;
 
     struct Share {
@@ -230,7 +194,7 @@ contract DividendDistributor is IDividendDistributor {
             removeShareholder(shareholder);
         }
 
-        totalShares = totalShares.sub(shares[shareholder].amount).add(amount);
+        totalShares = totalShares - shares[shareholder].amount + amount;
         shares[shareholder].amount = amount;
         shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
     }
@@ -249,10 +213,10 @@ contract DividendDistributor is IDividendDistributor {
             block.timestamp
         );
 
-        uint256 amount = RWRD.balanceOf(address(this)).sub(balanceBefore);
+        uint256 amount = RWRD.balanceOf(address(this)) - balanceBefore;
 
-        totalDividends = totalDividends.add(amount);
-        dividendsPerShare = dividendsPerShare.add(dividendsPerShareAccuracyFactor.mul(amount).div(totalShares));
+        totalDividends = totalDividends + amount;
+        dividendsPerShare = dividendsPerShare + (dividendsPerShareAccuracyFactor * amount) / totalShares;
     }
 
     function process(uint256 gas) external override onlyToken {
@@ -274,7 +238,7 @@ contract DividendDistributor is IDividendDistributor {
                 distributeDividend(shareholders[currentIndex]);
             }
 
-            gasUsed = gasUsed.add(gasLeft.sub(gasleft()));
+            gasUsed = gasUsed + (gasLeft - gasleft());
             gasLeft = gasleft();
             currentIndex++;
             iterations++;
@@ -291,10 +255,10 @@ contract DividendDistributor is IDividendDistributor {
 
         uint256 amount = getUnpaidEarnings(shareholder);
         if(amount > 0){
-            totalDistributed = totalDistributed.add(amount);
+            totalDistributed = totalDistributed + amount;
             RWRD.transfer(shareholder, amount);
             shareholderClaims[shareholder] = block.timestamp;
-            shares[shareholder].totalRealised = shares[shareholder].totalRealised.add(amount);
+            shares[shareholder].totalRealised = shares[shareholder].totalRealised + amount;
             shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
         }
     }
@@ -311,11 +275,11 @@ contract DividendDistributor is IDividendDistributor {
 
         if(shareholderTotalDividends <= shareholderTotalExcluded){ return 0; }
 
-        return shareholderTotalDividends.sub(shareholderTotalExcluded);
+        return shareholderTotalDividends - shareholderTotalExcluded;
     }
 
     function getCumulativeDividends(uint256 share) internal view returns (uint256) {
-        return share.mul(dividendsPerShare).div(dividendsPerShareAccuracyFactor);
+        return share * dividendsPerShare / dividendsPerShareAccuracyFactor;
     }
 
     function addShareholder(address shareholder) internal {
@@ -331,7 +295,6 @@ contract DividendDistributor is IDividendDistributor {
 }
 
 contract TFRT is IBEP20, Auth {
-    using SafeMath for uint256;
     address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
     //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address DEAD = 0x000000000000000000000000000000000000dEaD;
@@ -373,6 +336,7 @@ contract TFRT is IBEP20, Auth {
 
     bool public swapEnabled = true;
     uint256 public swapThreshold = _totalSupply * 1 / 10000;
+    uint256 public SendtoDev = _totalSupply * 1 / 10000;
     bool inSwap;
     modifier swapping() { inSwap = true; _; inSwap = false; }
 
@@ -381,7 +345,7 @@ contract TFRT is IBEP20, Auth {
         router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         pair = IDEXFactory(router.factory()).createPair(address(this), WBNB);
 
-        _allowances[address(this)][address(router)] = uint256(2**256 - 1);
+        _allowances[address(this)][address(router)] = type(uint256).max;
 
         distributor = new DividendDistributor(address(router));
 
@@ -432,7 +396,7 @@ contract TFRT is IBEP20, Auth {
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
         if(_allowances[sender][msg.sender] != type(uint256).max) {
-            _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount, "Insufficient Allowance");
+            _allowances[sender][msg.sender] = _allowances[sender][msg.sender] - amount;
         }
         return _transferFrom(sender, recipient, amount);
     }
@@ -451,10 +415,10 @@ contract TFRT is IBEP20, Auth {
         if(shouldSwapBack()){ swapBack(amount); }
 
         //Exchange tokens
-        _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance for '_Transfer From'");
+        _balances[sender] = _balances[sender] - amount;
 
         uint256 amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == pair)) : amount;
-        _balances[recipient] = _balances[recipient].add(amountReceived);
+        _balances[recipient] = _balances[recipient] + amountReceived;
 
         // Dividend tracker
         if(!isDividendExempt[sender]) {
@@ -472,8 +436,8 @@ contract TFRT is IBEP20, Auth {
     }
     
     function _basicTransfer(address sender, address recipient, uint256 amount) internal returns (bool) {
-        _balances[sender] = _balances[sender].sub(amount, "Insufficient balance for 'Basic transfer'");
-        _balances[recipient] = _balances[recipient].add(amount);
+        _balances[sender] = _balances[sender] - amount;
+        _balances[recipient] = _balances[recipient] + amount;
         emit Transfer(sender, recipient, amount);
         return true;
     }
@@ -485,18 +449,18 @@ contract TFRT is IBEP20, Auth {
     function takeFee(address sender, uint256 amount, bool isSell) internal returns (uint256) {
         uint256 multiplier = isSell ? sellMultiplier : 100;
         require(amount > 0, "No fees can be taken because amount is empty");
-        uint256 feeAmount = amount.mul(totalFee).mul(multiplier).div(feeDenominator * 100);
-        uint256 toBeBurned = amount.mul(burnTax).mul(multiplier).div(feeDenominator * 100);
+        uint256 feeAmount = amount * totalFee * multiplier / (feeDenominator * 100);
+        uint256 toBeBurned = amount * burnTax * multiplier / (feeDenominator * 100);
 
-        uint256 addToBal = feeAmount.sub(toBeBurned);
+        uint256 addToBal = feeAmount - toBeBurned;
 
-        _balances[address(this)] = _balances[address(this)].add(addToBal);
+        _balances[address(this)] = _balances[address(this)] + addToBal;
         emit Transfer(sender, address(this), addToBal);
 
-        _totalSupply = _totalSupply.sub(toBeBurned);
+        _totalSupply = _totalSupply - toBeBurned;
         emit Transfer(address(this), address(ZERO), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
 
-        return amount.sub(feeAmount);
+        return amount - feeAmount;
     }
 
     function shouldSwapBack() internal view returns (bool) {
@@ -507,9 +471,9 @@ contract TFRT is IBEP20, Auth {
     }
 
     function swapBack(uint256 amount) internal swapping {
-        uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)).div((totalFee).sub(burnTax)).mul(liquidityFee).div(2);
+        uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)) / (totalFee - burnTax) * liquidityFee / 2;
 
-        uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)).sub(amountTokensForLiquidity); // get all tokens from token address
+        uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)) - amountTokensForLiquidity; // get all tokens from token address
         require(amountToSwap > swapThreshold, "Not enough tokens held in reserves to swap");
 
         address[] memory path = new address[](2);
@@ -537,9 +501,9 @@ contract TFRT is IBEP20, Auth {
         uint256 TokensForLiqPool = IBEP20(address(this)).balanceOf(address(this));
 
         // spread the pool costs relative to tax values
-        uint256 amountBNBLiquidity = amountBNB.div((totalFee).sub(burnTax)).mul(liquidityFee);
-        uint256 amountBNBMarketing = amountBNB.div((totalFee).sub(burnTax)).mul(marketingFee);
-        uint256 amountBNBDev = amountBNB.div((totalFee).sub(burnTax)).mul(devFee);
+        uint256 amountBNBLiquidity = amountBNB / (totalFee - burnTax) * liquidityFee;
+        uint256 amountBNBMarketing = amountBNB / (totalFee - burnTax) * marketingFee;
+        uint256 amountBNBDev = amountBNB / (totalFee - burnTax) * devFee;
 
         (bool tmpSuccess,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
         (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
