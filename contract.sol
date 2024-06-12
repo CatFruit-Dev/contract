@@ -2,11 +2,7 @@
 
 /*
 NOTES
-the contract is a taxable token:
-    burns are made on buys
-    swaps with LP are made on sells
-    the contract will accumulate $$ & tokens but it SHOULD clear the account on sells and distribute the taxes to the marketing / dev and LP accounts on sells (after the swap)
-    please make sure to set your addresses in the contract before deployment
+
 */
 
 pragma solidity 0.8.26;
@@ -71,6 +67,18 @@ abstract contract Auth {
 
     modifier onlyOwner() {
         require(isOwner(msg.sender), "!OWNER"); _;
+    }
+
+    modifier authorized() {
+        require(isAuthorized(msg.sender), "!AUTHORIZED"); _;
+    }
+
+    function authorize(address adr) public onlyOwner {
+        authorizations[adr] = true;
+    }
+
+    function unauthorize(address adr) public onlyOwner {
+        authorizations[adr] = false;
     }
 
     function isOwner(address account) public view returns (bool) {
@@ -364,7 +372,7 @@ contract TFRT is IBEP20, Auth {
     uint256 distributorGas = 500000;
 
     bool public swapEnabled = true;
-    uint256 public swapThreshold = _totalSupply * 2 / 10000;
+    uint256 public swapThreshold = _totalSupply * 5 / 100000;
     bool inSwap;
     modifier swapping() { inSwap = true; _; inSwap = false; }
 
@@ -423,6 +431,9 @@ contract TFRT is IBEP20, Auth {
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        if(_allowances[sender][msg.sender] != type(uint256).max) {
+            _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount, "Insufficient Allowance");
+        }
         return _transferFrom(sender, recipient, amount);
     }
 
@@ -505,8 +516,6 @@ contract TFRT is IBEP20, Auth {
         path[0] = address(this);
         path[1] = WBNB;
 
-        IBEP20(address(this)).approve(address(router), amountToSwap);
-
         router.swapExactTokensForETHSupportingFeeOnTransferTokens(
             amountToSwap,
             0,
@@ -541,7 +550,6 @@ contract TFRT is IBEP20, Auth {
         
         require(amountBNBLiquidity > 0, "No BNB for liquidity pool to make swap");
         if(amountBNBLiquidity > 0){
-            IBEP20(address(this)).approve(address(router), amountBNBLiquidity);
             router.addLiquidityETH{value: TokensForLiqPool}(
                 address(this),
                 amountBNBLiquidity,
