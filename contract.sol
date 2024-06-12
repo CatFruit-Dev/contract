@@ -2,7 +2,11 @@
 
 /*
 NOTES
-
+the contract is a taxable token:
+    burns are made on buys
+    swaps with LP are made on sells
+    the contract will accumulate $$ & tokens but it SHOULD clear the account on sells and distribute the taxes to the marketing / dev and LP accounts on sells (after the swap)
+    please make sure to set your addresses in the contract before deployment
 */
 
 pragma solidity 0.8.26;
