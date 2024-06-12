@@ -2,8 +2,6 @@
 
 /*
 NOTES
-remove safemath, solidity 8.26 doesnt require it
-if possible, remove transfer from view / completely
 
 */
 
@@ -552,7 +550,6 @@ contract TFRT is IBEP20, Auth {
         }
 
     }
-
 
     function setIsDividendExempt(address holder, bool exempt) external onlyOwner {
         require(holder != address(this) && holder != pair);
