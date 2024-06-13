@@ -225,7 +225,11 @@ contract TFRT is IBEP20, Auth {
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"You cannot buy that much.");}
 
-        if(shouldSwapBack()){ swapBack(amount); }
+        uint256 SwapAmnt = amount;
+        if(shouldSwapBack()){
+            swapBack(SwapAmnt);
+            SwapAmnt = 0;
+        }
 
         //Exchange tokens
         _balances[sender] = _balances[sender] - amount;
