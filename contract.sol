@@ -3,6 +3,8 @@
 /*
 NOTES
 need to add reentrancyguard
+check amounts are being calculated and distributed
+make sure all deductions are accounted for
 
 */
 
@@ -119,180 +121,6 @@ interface IDEXRouter {
     ) external;
 }
 
-interface IDividendDistributor {
-    function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external;
-    function setShare(address shareholder, uint256 amount) external;
-    function deposit() external payable;
-    function process(uint256 gas) external;
-}
-
-contract DividendDistributor is IDividendDistributor {
-    address _token;
-
-    struct Share {
-        uint256 amount;
-        uint256 totalExcluded;
-        uint256 totalRealised;
-    }
-
-    //IBEP20 RWRD = IBEP20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
-    //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c; // BNB
-    IBEP20 RWRD = IBEP20(0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd); // testnet rew
-    address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet WBNB
-    IDEXRouter router;
-
-    address[] shareholders;
-    mapping (address => uint256) shareholderIndexes;
-    mapping (address => uint256) shareholderClaims;
-
-    mapping (address => Share) public shares;
-
-    uint256 public totalShares;
-    uint256 public totalDividends;
-    uint256 public totalDistributed;
-    uint256 public dividendsPerShare;
-    uint256 public dividendsPerShareAccuracyFactor = 10 ** 36;
-
-    uint256 public minPeriod = 45 * 60;
-    uint256 public minDistribution = 1 * (10 ** 13);
-
-    uint256 currentIndex;
-
-    bool initialized;
-    modifier initialization() {
-        require(!initialized);
-        _;
-        initialized = true;
-    }
-
-    modifier onlyToken() {
-        require(msg.sender == _token); _;
-    }
-
-    constructor (address _router) {
-        router = _router != address(0)
-            ? IDEXRouter(_router)
-            :router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
-            //:router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-        _token = msg.sender;
-    }
-
-    function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external override onlyToken {
-        minPeriod = _minPeriod;
-        minDistribution = _minDistribution;
-    }
-
-    function setShare(address shareholder, uint256 amount) external override onlyToken {
-        if(shares[shareholder].amount > 0){
-            distributeDividend(shareholder);
-        }
-
-        if(amount > 0 && shares[shareholder].amount == 0){
-            addShareholder(shareholder);
-        }else if(amount == 0 && shares[shareholder].amount > 0){
-            removeShareholder(shareholder);
-        }
-
-        totalShares = totalShares - shares[shareholder].amount + amount;
-        shares[shareholder].amount = amount;
-        shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
-    }
-
-    function deposit() external payable override onlyToken {
-        uint256 balanceBefore = RWRD.balanceOf(address(this));
-
-        address[] memory path = new address[](2);
-        path[0] = WBNB;
-        path[1] = address(RWRD);
-
-        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: msg.value}(
-            0,
-            path,
-            address(this),
-            block.timestamp
-        );
-
-        uint256 amount = RWRD.balanceOf(address(this)) - balanceBefore;
-
-        totalDividends = totalDividends + amount;
-        dividendsPerShare = dividendsPerShare + (dividendsPerShareAccuracyFactor * amount) / totalShares;
-    }
-
-    function process(uint256 gas) external override onlyToken {
-        uint256 shareholderCount = shareholders.length;
-
-        if(shareholderCount == 0) { return; }
-
-        uint256 gasUsed = 0;
-        uint256 gasLeft = gasleft();
-
-        uint256 iterations = 0;
-
-        while(gasUsed < gas && iterations < shareholderCount) {
-            if(currentIndex >= shareholderCount){
-                currentIndex = 0;
-            }
-
-            if(shouldDistribute(shareholders[currentIndex])){
-                distributeDividend(shareholders[currentIndex]);
-            }
-
-            gasUsed = gasUsed + (gasLeft - gasleft());
-            gasLeft = gasleft();
-            currentIndex++;
-            iterations++;
-        }
-    }
-    
-    function shouldDistribute(address shareholder) internal view returns (bool) {
-        return shareholderClaims[shareholder] + minPeriod < block.timestamp
-                && getUnpaidEarnings(shareholder) > minDistribution;
-    }
-
-    function distributeDividend(address shareholder) internal {
-        if(shares[shareholder].amount == 0){ return; }
-
-        uint256 amount = getUnpaidEarnings(shareholder);
-        if(amount > 0){
-            totalDistributed = totalDistributed + amount;
-            RWRD.transfer(shareholder, amount);
-            shareholderClaims[shareholder] = block.timestamp;
-            shares[shareholder].totalRealised = shares[shareholder].totalRealised + amount;
-            shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
-        }
-    }
-    
-    function claimDividend() external {
-        distributeDividend(msg.sender);
-    }
-
-    function getUnpaidEarnings(address shareholder) public view returns (uint256) {
-        if(shares[shareholder].amount == 0){ return 0; }
-
-        uint256 shareholderTotalDividends = getCumulativeDividends(shares[shareholder].amount);
-        uint256 shareholderTotalExcluded = shares[shareholder].totalExcluded;
-
-        if(shareholderTotalDividends <= shareholderTotalExcluded){ return 0; }
-
-        return shareholderTotalDividends - shareholderTotalExcluded;
-    }
-
-    function getCumulativeDividends(uint256 share) internal view returns (uint256) {
-        return share * dividendsPerShare / dividendsPerShareAccuracyFactor;
-    }
-
-    function addShareholder(address shareholder) internal {
-        shareholderIndexes[shareholder] = shareholders.length;
-        shareholders.push(shareholder);
-    }
-
-    function removeShareholder(address shareholder) internal {
-        shareholders[shareholderIndexes[shareholder]] = shareholders[shareholders.length-1];
-        shareholderIndexes[shareholders[shareholders.length-1]] = shareholderIndexes[shareholder];
-        shareholders.pop();
-    }
-}
-
 contract TFRT is IBEP20, Auth {
     address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
     //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
@@ -304,7 +132,7 @@ contract TFRT is IBEP20, Auth {
     string constant _symbol = "T6";
     uint8 constant _decimals = 0;
 
-    uint256 _totalSupply = 10000 * 10**6; //10B with 9 decimal places
+    uint256 _totalSupply = 10000 * 10**6; //10B with no decimal places
 
     mapping (address => uint256) _balances;
     mapping (address => mapping (address => uint256)) _allowances;
@@ -330,9 +158,6 @@ contract TFRT is IBEP20, Auth {
 
     bool public tradingOpen = true;
 
-    DividendDistributor public distributor;
-    uint256 distributorGas = 500000;
-
     bool public swapEnabled = true;
     uint256 public swapThreshold = _totalSupply * 1 / 10000;
     bool inSwap;
@@ -345,8 +170,6 @@ contract TFRT is IBEP20, Auth {
 
         _allowances[address(this)][address(router)] = type(uint256).max;
 
-        distributor = new DividendDistributor(address(router));
-
         isFeeExempt[msg.sender] = true;
         isFeeExempt[address(DEV)] = true;
         isFeeExempt[ZERO] = true;
@@ -354,15 +177,7 @@ contract TFRT is IBEP20, Auth {
         isFeeExempt[address(this)] = true;
         isFeeExempt[marketingFeeReceiver] = true;
         isFeeExempt[autoLiquidityReceiver] = true;
-        isFeeExempt[address(router)] = true;
-
-        isDividendExempt[address(this)] = true;
-        isDividendExempt[address(DEV)] = false;
-        isDividendExempt[DEAD] = true;
-        isDividendExempt[ZERO] = true;
-        isDividendExempt[autoLiquidityReceiver] = false;
-        isDividendExempt[marketingFeeReceiver] = false;
-        isDividendExempt[address(router)] = true;
+        isFeeExempt[address(router)] = true;        
 
         autoLiquidityReceiver = msg.sender;
         marketingFeeReceiver = msg.sender;
@@ -408,7 +223,7 @@ contract TFRT is IBEP20, Auth {
 
         if (!authorizations[sender] && recipient != address(this)  && recipient != address(DEAD) && recipient != pair && recipient != marketingFeeReceiver && recipient != devFeeReceiver  && recipient != autoLiquidityReceiver){
             uint256 heldTokens = balanceOf(recipient);
-            require((heldTokens + amount) <= _totalSupply,"Total holding is currently limited, you cannot buy that much.");}
+            require((heldTokens + amount) <= _totalSupply,"You cannot buy that much.");}
 
         if(shouldSwapBack()){ swapBack(amount); }
 
@@ -417,17 +232,6 @@ contract TFRT is IBEP20, Auth {
 
         uint256 amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == pair)) : amount;
         _balances[recipient] = _balances[recipient] + amountReceived;
-
-        // Dividend tracker
-        if(!isDividendExempt[sender]) {
-            try distributor.setShare(sender, _balances[sender]) {} catch {}
-        }
-
-        if(!isDividendExempt[recipient]) {
-            try distributor.setShare(recipient, _balances[recipient]) {} catch {} 
-        }
-
-        try distributor.process(distributorGas) {} catch {}
 
         emit Transfer(sender, recipient, amountReceived);
         return true;
@@ -507,7 +311,6 @@ contract TFRT is IBEP20, Auth {
         (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
         require(tmpSuccess, "Tax went unpaid to dev and marketing accounts");
         
-        // Supress warning msg
         tmpSuccess = false;
         
         require(amountBNBLiquidity > 0, "No BNB for liquidity pool to make swap");
@@ -552,17 +355,6 @@ contract TFRT is IBEP20, Auth {
                 );
                 emit AutoLiquify(remToLiquify, tokensRemToLiquify);
             }
-        }
-
-    }
-
-    function setIsDividendExempt(address holder, bool exempt) external onlyOwner {
-        require(holder != address(this) && holder != pair);
-        isDividendExempt[holder] = exempt;
-        if(exempt){
-            distributor.setShare(holder, 0);
-        }else{
-            distributor.setShare(holder, _balances[holder]);
         }
     }
 
