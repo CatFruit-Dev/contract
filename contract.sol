@@ -225,10 +225,10 @@ contract TFRT is IBEP20, Auth {
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"You cannot buy that much.");}
 
-        uint256 SwapAmnt = amount;
         if(shouldSwapBack()){
-            swapBack(SwapAmnt);
-            SwapAmnt = 0;
+            //uint256 initialBalance = amount; // save the initial balance
+            swapBack();
+            //require(amount == initialBalance - amount, "Reentrancy attempt detected"); // check if balance has changed as expected
         }
 
         //Exchange tokens
@@ -276,7 +276,7 @@ contract TFRT is IBEP20, Auth {
         && _balances[address(this)] >= swapThreshold;
     }
 
-    function swapBack(uint256 amount) internal swapping {
+    function swapBack() internal swapping {
         uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)) / (totalFee - burnTax) * liquidityFee / 2;
 
         uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)) - amountTokensForLiquidity; // get all tokens from token address
@@ -293,8 +293,6 @@ contract TFRT is IBEP20, Auth {
             address(this),
             block.timestamp
         );
-
-        amount = address(this).balance;
         
         splitAndDistribute();
     }
