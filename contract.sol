@@ -3,7 +3,6 @@
 /*
 NOTES
 need to add reentrancyguard
-need to test after removing safemath
 
 */
 
@@ -336,7 +335,6 @@ contract TFRT is IBEP20, Auth {
 
     bool public swapEnabled = true;
     uint256 public swapThreshold = _totalSupply * 1 / 10000;
-    uint256 public SendtoDev = _totalSupply * 1 / 10000;
     bool inSwap;
     modifier swapping() { inSwap = true; _; inSwap = false; }
 
@@ -457,8 +455,8 @@ contract TFRT is IBEP20, Auth {
         _balances[address(this)] = _balances[address(this)] + addToBal;
         emit Transfer(sender, address(this), addToBal);
 
-        _totalSupply = _totalSupply - toBeBurned;
         emit Transfer(address(this), address(ZERO), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
+        _totalSupply = _totalSupply - toBeBurned;
 
         return amount - feeAmount;
     }
@@ -523,6 +521,37 @@ contract TFRT is IBEP20, Auth {
                 block.timestamp
             );
             emit AutoLiquify(amountBNBLiquidity, TokensForLiqPool);
+        }
+
+        uint256 canUltraBurn = IBEP20(address(this)).balanceOf(address(this)) / 2;
+        if(canUltraBurn > swapThreshold) {
+            UltraBurn();
+        } else {
+            canUltraBurn = 0;
+        }
+    }
+
+    function UltraBurn() internal {
+        uint256 toUltraBurn = IBEP20(address(this)).balanceOf(address(this)) / 2;
+        if (toUltraBurn > swapThreshold) {
+            emit Transfer(address(this), address(ZERO), toUltraBurn); // burn half the remaining tokens in contract balance
+            _totalSupply = _totalSupply - toUltraBurn;
+
+            uint256 remToLiquify = address(this).balance;
+            uint256 tokensRemToLiquify = IBEP20(address(this)).balanceOf(address(this));
+
+            require(remToLiquify > 0, "No BNB for liquidity pool to make swap");
+            if(remToLiquify > 0){
+                router.addLiquidityETH{value: tokensRemToLiquify}(
+                    address(this),
+                    remToLiquify,
+                    0,
+                    0,
+                    autoLiquidityReceiver,
+                    block.timestamp
+                );
+                emit AutoLiquify(remToLiquify, tokensRemToLiquify);
+            }
         }
 
     }
