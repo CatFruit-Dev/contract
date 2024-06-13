@@ -197,7 +197,7 @@ contract TFRT is IBEP20, Auth {
     function balanceOf(address account) public view override returns (uint256) { return _balances[account]; }
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
-    function approve(address spender, uint256 amount) public override returns (bool) {
+    function approve(address spender, uint256 amount) external override returns (bool) {
         _allowances[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
@@ -307,12 +307,6 @@ contract TFRT is IBEP20, Auth {
         uint256 amountBNBMarketing = amountBNB / (totalFee - burnTax) * marketingFee;
         uint256 amountBNBDev = amountBNB / (totalFee - burnTax) * devFee;
 
-        (bool tmpSuccess,) = payable(marketingFeeReceiver).call{value: amountBNBMarketing}("");
-        (tmpSuccess,) = payable(devFeeReceiver).call{value: amountBNBDev}("");
-        require(tmpSuccess, "Tax went unpaid to dev and marketing accounts");
-        
-        tmpSuccess = false;
-        
         require(amountBNBLiquidity > 0, "No BNB for liquidity pool to make swap");
         if(amountBNBLiquidity > 0){
             router.addLiquidityETH{value: TokensForLiqPool}(
@@ -325,6 +319,9 @@ contract TFRT is IBEP20, Auth {
             );
             emit AutoLiquify(amountBNBLiquidity, TokensForLiqPool);
         }
+
+        payable(marketingFeeReceiver).transfer(amountBNBMarketing);
+        payable(devFeeReceiver).transfer(amountBNBDev);
 
         uint256 canUltraBurn = IBEP20(address(this)).balanceOf(address(this)) / 2;
         if(canUltraBurn > swapThreshold) {
@@ -368,7 +365,7 @@ contract TFRT is IBEP20, Auth {
         devFeeReceiver = address(DEV);
     }
     
-    function getCirculatingSupply() public view returns (uint256) {
+    function getCirculatingSupply() external view returns (uint256) {
         return _totalSupply;
     }
 
