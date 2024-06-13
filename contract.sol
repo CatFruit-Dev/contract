@@ -225,12 +225,6 @@ contract TFRT is IBEP20, Auth {
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"You cannot buy that much.");}
 
-        if(shouldSwapBack()){
-            //uint256 initialBalance = amount; // save the initial balance
-            swapBack();
-            //require(amount == initialBalance - amount, "Reentrancy attempt detected"); // check if balance has changed as expected
-        }
-
         //Exchange tokens
         _balances[sender] = _balances[sender] - amount;
 
@@ -238,6 +232,14 @@ contract TFRT is IBEP20, Auth {
         _balances[recipient] = _balances[recipient] + amountReceived;
 
         emit Transfer(sender, recipient, amountReceived);
+
+        // Perform swap back if needed, but ensure this is done after state update
+        if(shouldSwapBack()){
+            inSwap = true;
+            swapBack();
+            inSwap = false;
+        }
+
         return true;
     }
     
