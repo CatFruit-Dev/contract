@@ -9,8 +9,6 @@ make sure all deductions are accounted for
 
 pragma solidity 0.8.26;
 
-import "reentrancyGuard.sol";
-
 interface IBEP20 {
     function totalSupply() external view returns (uint256);
     function decimals() external view returns (uint8);
@@ -109,7 +107,7 @@ interface IDEXRouter {
 }
 
 // Anyway, the real deal below
-contract TFRT is IBEP20, Auth, ReentrancyGuard {
+contract TFRT is IBEP20, Auth {
     address private constant _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
     //address private constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address private constant _DEAD = 0x000000000000000000000000000000000000dEaD;
