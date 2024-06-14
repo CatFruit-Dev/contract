@@ -108,66 +108,65 @@ interface IDEXRouter {
 
 // Anyway, the real deal below
 contract TFRT is IBEP20, Auth {
-    address public constant WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
-    //address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
-    address public constant ZERO = 0x0000000000000000000000000000000000000000;
-    address public constant DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
+    address private constant _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
+    //address private constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address private constant _DEAD = 0x000000000000000000000000000000000000dEaD;
+    address private constant _ZERO = 0x0000000000000000000000000000000000000000;
+    address private constant _DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
 
     string public constant _name = "TEST6";
     string public constant _symbol = "T6";
-    uint8 public constant _decimals = 2;
+    uint8 private constant _decimals = 2;
 
-    uint256 public _totalSupply = 10000 * 10**6; //10B with no decimal places
+    uint256 private _totalSupply = 10000 * 10**6; //10B with no decimal places
 
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
 
-    mapping (address => bool) public isFeeExempt;
-    mapping (address => bool) public isDividendExempt;
+    mapping (address => bool) public _isFeeExempt;
 
-    uint256 public constant liquidityFee    = 10;
-    uint256 public constant burnTax         = 10;
-    uint256 public constant marketingFee    = 5;
-    uint256 public constant devFee          = 5;
-    uint256 public constant totalFee        = marketingFee + liquidityFee + devFee + burnTax; // total 3%
-    uint256 public constant feeDenominator  = 1000;
+    uint256 private constant _liquidityFee    = 10;
+    uint256 private constant _burnTax         = 10;
+    uint256 private constant _marketingFee    = 5;
+    uint256 private constant _devFee          = 5;
+    uint256 private constant _totalFee        = _marketingFee + _liquidityFee + _devFee + _burnTax; // total 3%
+    uint256 private constant _feeDenominator  = 1000;
 
-    uint256 public constant sellMultiplier  = 100;
+    uint256 private constant _sellMultiplier  = 100;
 
-    address public autoLiquidityReceiver;
-    address public marketingFeeReceiver;
-    address public devFeeReceiver;
+    address private __autoLiquidityReceiver;
+    address private __marketingFeeReceiver;
+    address private __devFeeReceiver;
 
-    IDEXRouter public router;
-    address public pair;
+    IDEXRouter private _router;
+    address private _pair;
 
-    bool public constant tradingOpen = true;
+    bool private constant _tradingOpen = true;
 
-    bool public constant swapEnabled = true;
-    uint256 public swapThreshold = _totalSupply * 1 / 10000;
-    bool public inSwap;
-    modifier swapping() { inSwap = true; _; inSwap = false; }
+    bool private constant _swapEnabled = true;
+    uint256 private _swapThreshold = _totalSupply * 1 / 10000;
+    bool private _inSwap;
+    modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
     constructor () Auth(msg.sender) {
         //router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-        router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
-        pair = IDEXFactory(router.factory()).createPair(address(this), WBNB);
+        _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
+        _pair = IDEXFactory(_router.factory()).createPair(address(this), _WBNB);
 
-        _allowances[address(this)][address(router)] = type(uint256).max;
+        _allowances[address(this)][address(_router)] = type(uint256).max;
 
-        isFeeExempt[msg.sender] = true;
-        isFeeExempt[address(DEV)] = true;
-        isFeeExempt[ZERO] = true;
-        isFeeExempt[DEAD] = true;
-        isFeeExempt[address(this)] = true;
-        isFeeExempt[marketingFeeReceiver] = true;
-        isFeeExempt[autoLiquidityReceiver] = true;
-        isFeeExempt[address(router)] = true;        
+        _isFeeExempt[msg.sender] = true;
+        _isFeeExempt[address(_DEV)] = true;
+        _isFeeExempt[_ZERO] = true;
+        _isFeeExempt[_DEAD] = true;
+        _isFeeExempt[address(this)] = true;
+        _isFeeExempt[__marketingFeeReceiver] = true;
+        _isFeeExempt[__autoLiquidityReceiver] = true;
+        _isFeeExempt[address(_router)] = true;        
 
-        autoLiquidityReceiver = msg.sender;
-        marketingFeeReceiver = msg.sender;
-        devFeeReceiver = address(DEV);
+        __autoLiquidityReceiver = msg.sender;
+        __marketingFeeReceiver = msg.sender;
+        __devFeeReceiver = address(_DEV);
 
         _balances[msg.sender] = _totalSupply;
         emit Transfer(address(0), msg.sender, _totalSupply);
@@ -201,30 +200,28 @@ contract TFRT is IBEP20, Auth {
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
-        if(inSwap){ return _basicTransfer(sender, recipient, amount); }
+        if(_inSwap){ return _basicTransfer(sender, recipient, amount); }
 
         if(!authorizations[sender] && !authorizations[recipient]){
-            require(tradingOpen,"Trading not open");
+            require(_tradingOpen,"Trading not open");
         }
 
-        if (!authorizations[sender] && recipient != address(this)  && recipient != address(DEAD) && recipient != pair && recipient != marketingFeeReceiver && recipient != devFeeReceiver  && recipient != autoLiquidityReceiver){
+        if (!authorizations[sender] && recipient != address(this)  && recipient != address(_DEAD) && recipient != _pair && recipient != __marketingFeeReceiver && recipient != __devFeeReceiver  && recipient != __autoLiquidityReceiver){
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"Cannot buy that much");}
 
         if(shouldSwapBack()){
-            // Prevent reentrancy during swap
-            inSwap = true;
+            _inSwap = true;
             swapBack(amount);
-            inSwap = false;
+            _inSwap = false;
         }
 
-        //Exchange tokens
         _balances[sender] = _balances[sender] - amount;
 
-        uint256 amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == pair)) : amount;
-        _balances[recipient] = _balances[recipient] + amountReceived;
+        uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == _pair)) : amount;
+        _balances[recipient] = _balances[recipient] + _amountReceived;
 
-        emit Transfer(sender, recipient, amountReceived);
+        emit Transfer(sender, recipient, _amountReceived);
         return true;
     }
     
@@ -236,89 +233,96 @@ contract TFRT is IBEP20, Auth {
     }
 
     // Are you taxable? probably
-    function shouldTakeFee(address sender) internal view returns (bool) {return !isFeeExempt[sender];}
+    function shouldTakeFee(address sender) internal view returns (bool) {return !_isFeeExempt[sender];}
 
     function takeFee(address sender, uint256 amount, bool isSell) internal returns (uint256) {
-        uint256 multiplier = isSell ? sellMultiplier : 100;
+        address TKNAddr = address(this);
+
+        uint256 multiplier = isSell ? _sellMultiplier : 100;
         require(amount > 0, "No fees: amount is empty");
-        uint256 feeAmount = amount * totalFee * multiplier / (feeDenominator * 100);
-        uint256 toBeBurned = amount * burnTax * multiplier / (feeDenominator * 100);
+        uint256 _feeAmount = amount * _totalFee * multiplier / (_feeDenominator * 100);
+        uint256 _toBeBurned = amount * _burnTax * multiplier / (_feeDenominator * 100);
 
-        uint256 addToBal = feeAmount - toBeBurned;
+        uint256 _addToBal = _feeAmount - _toBeBurned;
 
-        _balances[address(this)] = _balances[address(this)] + addToBal;
-        emit Transfer(sender, address(this), addToBal);
+        _balances[TKNAddr] = _balances[TKNAddr] + _addToBal;
+        emit Transfer(sender, TKNAddr, _addToBal);
 
-        emit Transfer(address(this), address(ZERO), toBeBurned); // Emitting a transfer event to the zero address to indicate burn
-        _totalSupply = _totalSupply - toBeBurned;
+        // Send for burn
+        emit Transfer(TKNAddr, address(_ZERO), _toBeBurned);
+        _totalSupply = _totalSupply - _toBeBurned;
 
-        return amount - feeAmount;
+        return amount - _feeAmount;
     }
 
     // Do we have enough to pay the gods?
     function shouldSwapBack() internal view returns (bool) {
-        return msg.sender != pair
-        && !inSwap
-        && swapEnabled
-        && _balances[address(this)] >= swapThreshold;
+        return msg.sender != _pair
+        && !_inSwap
+        && _swapEnabled
+        && _balances[address(this)] >= _swapThreshold;
     }
 
     // Yes, please pay them!
     function swapBack(uint256 amount) internal swapping {
-        uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)) * liquidityFee / (totalFee - burnTax) / 2;
+        address TKNAddr = address(this);
 
-        uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)) - amountTokensForLiquidity; // get all tokens from token address
-        require(amountToSwap > swapThreshold, "No tokens held to swap");
+        uint256 _amountTokensForLiquidity = IBEP20(TKNAddr).balanceOf(TKNAddr) * _liquidityFee / (_totalFee - _burnTax) / 2;
+
+        uint256 _amountToSwap = IBEP20(TKNAddr).balanceOf(TKNAddr) - _amountTokensForLiquidity;
+        require(_amountToSwap > _swapThreshold, "No tokens held to swap");
 
         address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = WBNB;
+        path[0] = TKNAddr;
+        path[1] = _WBNB;
 
-        router.swapExactTokensForETHSupportingFeeOnTransferTokens(
-            amountToSwap,
+        _router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            _amountToSwap,
             0,
             path,
-            address(this),
+            TKNAddr,
             block.timestamp
         );
 
-        amount = address(this).balance;
+        amount = TKNAddr.balance;
         
         splitAndDistribute();
     }
 
     function splitAndDistribute() internal {
+        address TKNAddr = address(this);
 
-        uint256 burnTaxVal = burnTax; // localise variable value to function to reduce reading
+        // localise variable value to function to reduce reading
+        uint256 burnTaxVal = _burnTax;
 
-        uint256 amountBNB = address(this).balance;
-        require(amountBNB > 0, "Nothing being held");
+        uint256 _amountBNB = TKNAddr.balance;
+        require(_amountBNB > 0, "Nothing being held");
 
-        uint256 TokensForLiqPool = IBEP20(address(this)).balanceOf(address(this));
+        uint256 TokensForLiqPool = IBEP20(TKNAddr).balanceOf(TKNAddr);
 
         // spread the pool costs relative to tax values
-        uint256 amountBNBLiquidity = amountBNB * liquidityFee / (totalFee - burnTaxVal);
-        uint256 amountBNBMarketing = amountBNB * marketingFee / (totalFee - burnTaxVal);
-        uint256 amountBNBDev = amountBNB * devFee / (totalFee - burnTaxVal);
+        uint256 _amountBNBLiquidity = _amountBNB * _liquidityFee / (_totalFee - burnTaxVal);
+        uint256 _amountBNBMarketing = _amountBNB * _marketingFee / (_totalFee - burnTaxVal);
+        uint256 _amountBNBDev = _amountBNB * _devFee / (_totalFee - burnTaxVal);
 
-        require(amountBNBLiquidity > 0, "No BNB for LP to make swap");
-        if(amountBNBLiquidity > 0){
-            router.addLiquidityETH{value: TokensForLiqPool}(
-                address(this),
-                amountBNBLiquidity,
+        require(_amountBNBLiquidity > 0, "No BNB for LP to make swap");
+        if(_amountBNBLiquidity > 0){
+            _router.addLiquidityETH{value: TokensForLiqPool}(
+                TKNAddr,
+                _amountBNBLiquidity,
                 0,
                 0,
-                autoLiquidityReceiver,
+                __autoLiquidityReceiver,
                 block.timestamp
             );
-            emit AutoLiquify(amountBNBLiquidity, TokensForLiqPool);
+            emit AutoLiquify(_amountBNBLiquidity, TokensForLiqPool);
         }
 
-        payable(marketingFeeReceiver).transfer(amountBNBMarketing);
-        payable(devFeeReceiver).transfer(amountBNBDev);
+        payable(__marketingFeeReceiver).transfer(_amountBNBMarketing);
+        payable(__devFeeReceiver).transfer(_amountBNBDev);
 
-        uint256 canUltraBurn = IBEP20(address(this)).balanceOf(address(this)) / 2;
-        if(canUltraBurn > swapThreshold) {
+        uint256 canUltraBurn = IBEP20(TKNAddr).balanceOf(TKNAddr) / 2;
+        if(canUltraBurn > _swapThreshold) {
             UltraBurn();
         } else {
             canUltraBurn = 0;
@@ -327,39 +331,41 @@ contract TFRT is IBEP20, Auth {
 
     // BURN BABY BURN!!
     function UltraBurn() internal {
-        uint256 toUltraBurn = IBEP20(address(this)).balanceOf(address(this)) / 2;
-        if (toUltraBurn > swapThreshold) {
-            emit Transfer(address(this), address(ZERO), toUltraBurn); // burn half the remaining tokens in contract balance
+        address TKNAddr = address(this);
+
+        uint256 toUltraBurn = IBEP20(TKNAddr).balanceOf(TKNAddr) / 2;
+        if (toUltraBurn > _swapThreshold) {
+            emit Transfer(TKNAddr, address(_ZERO), toUltraBurn);
             _totalSupply = _totalSupply - toUltraBurn;
 
-            uint256 remToLiquify = address(this).balance;
-            uint256 tokensRemToLiquify = IBEP20(address(this)).balanceOf(address(this));
+            uint256 _remToLiquify = TKNAddr.balance;
+            uint256 _tokensRemToLiquify = IBEP20(TKNAddr).balanceOf(TKNAddr);
 
-            require(remToLiquify > 0, "No BNB for LP to make swap");
-            if(remToLiquify > 0){
-                router.addLiquidityETH{value: tokensRemToLiquify}(
-                    address(this),
-                    remToLiquify,
+            require(_remToLiquify > 0, "No BNB for LP to make swap");
+            if(_remToLiquify > 0){
+                _router.addLiquidityETH{value: _tokensRemToLiquify}(
+                    TKNAddr,
+                    _remToLiquify,
                     0,
                     0,
-                    autoLiquidityReceiver,
+                    __autoLiquidityReceiver,
                     block.timestamp
                 );
-                emit AutoLiquify(remToLiquify, tokensRemToLiquify);
+                emit AutoLiquify(_remToLiquify, _tokensRemToLiquify);
             }
         }
     }
 
-    function setIsFeeExempt(address holder, bool exempt) external onlyOwner {isFeeExempt[holder] = exempt;}
+    function setIsFeeExempt(address holder, bool exempt) external onlyOwner {_isFeeExempt[holder] = exempt;}
 
-    function setFeeReceivers(address _autoLiquidityReceiver, address _marketingFeeReceiver ) external onlyOwner {
-        autoLiquidityReceiver = _autoLiquidityReceiver;
-        marketingFeeReceiver = _marketingFeeReceiver;
-        devFeeReceiver = address(DEV);
+    function setFeeReceivers(address autoLiquidityReceiver, address marketingFeeReceiver ) external onlyOwner {
+        autoLiquidityReceiver = __autoLiquidityReceiver;
+        marketingFeeReceiver = __marketingFeeReceiver;
+        __devFeeReceiver = address(_DEV);
     }
     
     // How much do we have to play with?
     function getCirculatingSupply() external view returns (uint256) {return _totalSupply;}
 
-event AutoLiquify(uint256 amountBNB, uint256 amountBOG);
+event AutoLiquify(uint256 _remToLiquify, uint256 _tokensRemToLiquify);
 }
