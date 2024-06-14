@@ -190,18 +190,18 @@ contract TFRT is IBEP20, Auth {
     }
 
     function transfer(address recipient, uint256 amount) external override returns (bool) {
-        uint256 _toTran = amount;
+        uint256 _toTran1 = amount;
         amount = 0;
-        return _transferFrom(msg.sender, recipient, _toTran);
+        return _transferFrom(msg.sender, recipient, _toTran1);
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
         if(_allowances[sender][msg.sender] != type(uint256).max) {
             _allowances[sender][msg.sender] = _allowances[sender][msg.sender] - amount;
         }
-        uint256 _toTran = amount;
+        uint256 _toTran2 = amount;
         amount = 0;
-        return _transferFrom(sender, recipient, _toTran);
+        return _transferFrom(sender, recipient, _toTran2);
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
@@ -217,9 +217,9 @@ contract TFRT is IBEP20, Auth {
 
         if(shouldSwapBack()){
             _inSwap = true;
-            uint256 _toTran = amount;
+            uint256 _toTran4 = amount;
             amount = 0;
-            swapBack(_toTran);
+            swapBack(_toTran4);
             _inSwap = false;
         }
 
@@ -238,9 +238,9 @@ contract TFRT is IBEP20, Auth {
     function _basicTransfer(address sender, address recipient, uint256 amount) internal returns (bool) {
         _balances[sender] = _balances[sender] - amount;
         _balances[recipient] = _balances[recipient] + amount;
-        uint256 _toTran = amount;
+        uint256 _toTran3 = amount;
         amount = 0;
-        emit Transfer(sender, recipient, _toTran);
+        emit Transfer(sender, recipient, _toTran3);
         return true;
     }
 
