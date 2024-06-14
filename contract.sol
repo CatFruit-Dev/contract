@@ -108,11 +108,11 @@ interface IDEXRouter {
 
 // Anyway, the real deal below
 contract TFRT is IBEP20, Auth {
-    address public WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
-    //address public WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address public DEAD = 0x000000000000000000000000000000000000dEaD;
-    address public ZERO = 0x0000000000000000000000000000000000000000;
-    address public DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
+    address public constant WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
+    //address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
+    address public constant ZERO = 0x0000000000000000000000000000000000000000;
+    address public constant DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
 
     string public constant _name = "TEST6";
     string public constant _symbol = "T6";
@@ -126,14 +126,14 @@ contract TFRT is IBEP20, Auth {
     mapping (address => bool) public isFeeExempt;
     mapping (address => bool) public isDividendExempt;
 
-    uint256 public liquidityFee    = 10;
-    uint256 public burnTax         = 10;
-    uint256 public marketingFee    = 5;
-    uint256 public devFee          = 5;
+    uint256 public constant liquidityFee    = 10;
+    uint256 public constant burnTax         = 10;
+    uint256 public constant marketingFee    = 5;
+    uint256 public constant devFee          = 5;
     uint256 public totalFee        = marketingFee + liquidityFee + devFee + burnTax; // total 3%
-    uint256 public feeDenominator  = 1000;
+    uint256 public constant feeDenominator  = 1000;
 
-    uint256 public sellMultiplier  = 100;
+    uint256 public constant sellMultiplier  = 100;
 
     address public autoLiquidityReceiver;
     address public marketingFeeReceiver;
@@ -142,7 +142,7 @@ contract TFRT is IBEP20, Auth {
     IDEXRouter public router;
     address public pair;
 
-    bool public tradingOpen = true;
+    bool public constant tradingOpen = true;
 
     bool public swapEnabled = true;
     uint256 public swapThreshold = _totalSupply * 1 / 10000;
@@ -289,15 +289,17 @@ contract TFRT is IBEP20, Auth {
 
     function splitAndDistribute() internal {
 
+        uint256 burnTaxVal = burnTax; // localise variable value to function to reduce reading
+
         uint256 amountBNB = address(this).balance;
         require(amountBNB > 0, "Nothing being held");
 
         uint256 TokensForLiqPool = IBEP20(address(this)).balanceOf(address(this));
 
         // spread the pool costs relative to tax values
-        uint256 amountBNBLiquidity = amountBNB * liquidityFee / (totalFee - burnTax);
-        uint256 amountBNBMarketing = amountBNB * marketingFee / (totalFee - burnTax);
-        uint256 amountBNBDev = amountBNB * devFee / (totalFee - burnTax);
+        uint256 amountBNBLiquidity = amountBNB * liquidityFee / (totalFee - burnTaxVal);
+        uint256 amountBNBMarketing = amountBNB * marketingFee / (totalFee - burnTaxVal);
+        uint256 amountBNBDev = amountBNB * devFee / (totalFee - burnTaxVal);
 
         require(amountBNBLiquidity > 0, "No BNB for LP to make swap");
         if(amountBNBLiquidity > 0){
