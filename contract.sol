@@ -5,6 +5,9 @@ NOTES
 check amounts are being calculated and distributed
 make sure all deductions are accounted for
 
+fix 6x precision loss during division issues
+fix 4x Check-effects-interaction issues
+
 */
 
 pragma solidity 0.8.26;
@@ -32,29 +35,15 @@ abstract contract Auth {
         owner = _owner;
     }
 
-    modifier onlyOwner() {
-        require(isOwner(msg.sender), "!OWNER"); _;
-    }
+    modifier onlyOwner() {require(isOwner(msg.sender), "!OWNER"); _;}
 
-    modifier authorized() {
-        require(isAuthorized(msg.sender), "!AUTHORIZED"); _;
-    }
+    function authorize(address adr) public onlyOwner {authorizations[adr] = true;}
 
-    function authorize(address adr) public onlyOwner {
-        authorizations[adr] = true;
-    }
+    function unauthorize(address adr) public onlyOwner {authorizations[adr] = false;}
 
-    function unauthorize(address adr) public onlyOwner {
-        authorizations[adr] = false;
-    }
+    function isOwner(address account) public view returns (bool) {return account == owner;}
 
-    function isOwner(address account) public view returns (bool) {
-        return account == owner;
-    }
-
-    function isAuthorized(address adr) public view returns (bool) {
-        return authorizations[adr];
-    }
+    function isAuthorized(address adr) public view returns (bool) {return authorizations[adr];}
 
     function transferOwnership(address payable adr) public onlyOwner {
         owner = adr;
@@ -62,9 +51,7 @@ abstract contract Auth {
         emit OwnershipTransferred(adr);
     }
 
-    function renounceOwnership() public virtual onlyOwner {
-    transferOwnership(payable(address(0)));
-    }
+    function renounceOwnership() public virtual onlyOwner {transferOwnership(payable(address(0)));}
 
     event OwnershipTransferred(address owner);
 }
@@ -220,12 +207,12 @@ contract TFRT is IBEP20, Auth {
         if(inSwap){ return _basicTransfer(sender, recipient, amount); }
 
         if(!authorizations[sender] && !authorizations[recipient]){
-            require(tradingOpen,"Trading not open yet");
+            require(tradingOpen,"Trading not open");
         }
 
         if (!authorizations[sender] && recipient != address(this)  && recipient != address(DEAD) && recipient != pair && recipient != marketingFeeReceiver && recipient != devFeeReceiver  && recipient != autoLiquidityReceiver){
             uint256 heldTokens = balanceOf(recipient);
-            require((heldTokens + amount) <= _totalSupply,"You cannot buy that much.");}
+            require((heldTokens + amount) <= _totalSupply,"Cannot buy that much");}
 
         if(shouldSwapBack()){
             // Prevent reentrancy during swap
@@ -252,13 +239,11 @@ contract TFRT is IBEP20, Auth {
     }
 
     // Are you taxable? probably
-    function shouldTakeFee(address sender) internal view returns (bool) {
-        return !isFeeExempt[sender];
-    }
+    function shouldTakeFee(address sender) internal view returns (bool) {return !isFeeExempt[sender];}
 
     function takeFee(address sender, uint256 amount, bool isSell) internal returns (uint256) {
         uint256 multiplier = isSell ? sellMultiplier : 100;
-        require(amount > 0, "No fees can be taken because amount is empty");
+        require(amount > 0, "No fees: amount is empty");
         uint256 feeAmount = amount * totalFee * multiplier / (feeDenominator * 100);
         uint256 toBeBurned = amount * burnTax * multiplier / (feeDenominator * 100);
 
@@ -286,7 +271,7 @@ contract TFRT is IBEP20, Auth {
         uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)) / (totalFee - burnTax) * liquidityFee / 2;
 
         uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)) - amountTokensForLiquidity; // get all tokens from token address
-        require(amountToSwap > swapThreshold, "Not enough tokens held in reserves to swap");
+        require(amountToSwap > swapThreshold, "No tokens held to swap");
 
         address[] memory path = new address[](2);
         path[0] = address(this);
@@ -317,7 +302,7 @@ contract TFRT is IBEP20, Auth {
         uint256 amountBNBMarketing = amountBNB / (totalFee - burnTax) * marketingFee;
         uint256 amountBNBDev = amountBNB / (totalFee - burnTax) * devFee;
 
-        require(amountBNBLiquidity > 0, "No BNB for liquidity pool to make swap");
+        require(amountBNBLiquidity > 0, "No BNB for LP to make swap");
         if(amountBNBLiquidity > 0){
             router.addLiquidityETH{value: TokensForLiqPool}(
                 address(this),
@@ -351,7 +336,7 @@ contract TFRT is IBEP20, Auth {
             uint256 remToLiquify = address(this).balance;
             uint256 tokensRemToLiquify = IBEP20(address(this)).balanceOf(address(this));
 
-            require(remToLiquify > 0, "No BNB for liquidity pool to make swap");
+            require(remToLiquify > 0, "No BNB for LP to make swap");
             if(remToLiquify > 0){
                 router.addLiquidityETH{value: tokensRemToLiquify}(
                     address(this),
@@ -366,9 +351,7 @@ contract TFRT is IBEP20, Auth {
         }
     }
 
-    function setIsFeeExempt(address holder, bool exempt) external onlyOwner {
-        isFeeExempt[holder] = exempt;
-    }
+    function setIsFeeExempt(address holder, bool exempt) external onlyOwner {isFeeExempt[holder] = exempt;}
 
     function setFeeReceivers(address _autoLiquidityReceiver, address _marketingFeeReceiver ) external onlyOwner {
         autoLiquidityReceiver = _autoLiquidityReceiver;
@@ -377,9 +360,7 @@ contract TFRT is IBEP20, Auth {
     }
     
     // How much do we have to play with?
-    function getCirculatingSupply() external view returns (uint256) {
-        return _totalSupply;
-    }
+    function getCirculatingSupply() external view returns (uint256) {return _totalSupply;}
 
 event AutoLiquify(uint256 amountBNB, uint256 amountBOG);
 }
