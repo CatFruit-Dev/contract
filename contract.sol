@@ -217,7 +217,9 @@ contract TFRT is IBEP20, Auth {
 
         if(shouldSwapBack()){
             _inSwap = true;
-            swapBack(amount);
+            uint256 _toTran = amount;
+            amount = 0;
+            swapBack(_toTran);
             _inSwap = false;
         }
 
