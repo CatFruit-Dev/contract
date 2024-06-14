@@ -118,7 +118,7 @@ contract TFRT is IBEP20, Auth {
     string public constant _symbol = "T6";
     uint8 private constant _decimals = 2;
 
-    uint256 private _totalSupply = 10000 * 10**6; //10B with no decimal places
+    uint256 private _totalSupply = 10000 * 10**6 * 10**_decimals; //10B with 2 decimal places
 
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
@@ -149,17 +149,18 @@ contract TFRT is IBEP20, Auth {
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
     constructor () Auth(msg.sender) {
+        address _TKNAddr = address(this);
         //router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
-        _pair = IDEXFactory(_router.factory()).createPair(address(this), _WBNB);
+        _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _WBNB);
 
-        _allowances[address(this)][address(_router)] = type(uint256).max;
+        _allowances[_TKNAddr][address(_router)] = type(uint256).max;
 
         _isFeeExempt[msg.sender] = true;
         _isFeeExempt[address(_DEV)] = true;
         _isFeeExempt[_ZERO] = true;
         _isFeeExempt[_DEAD] = true;
-        _isFeeExempt[address(this)] = true;
+        _isFeeExempt[_TKNAddr] = true;
         _isFeeExempt[__marketingFeeReceiver] = true;
         _isFeeExempt[__autoLiquidityReceiver] = true;
         _isFeeExempt[address(_router)] = true;        
@@ -236,7 +237,7 @@ contract TFRT is IBEP20, Auth {
     function shouldTakeFee(address sender) internal view returns (bool) {return !_isFeeExempt[sender];}
 
     function takeFee(address sender, uint256 amount, bool isSell) internal returns (uint256) {
-        address TKNAddr = address(this);
+        address _TKNAddr = address(this);
 
         uint256 multiplier = isSell ? _sellMultiplier : 100;
         require(amount > 0, "No fees: amount is empty");
@@ -245,11 +246,11 @@ contract TFRT is IBEP20, Auth {
 
         uint256 _addToBal = _feeAmount - _toBeBurned;
 
-        _balances[TKNAddr] = _balances[TKNAddr] + _addToBal;
-        emit Transfer(sender, TKNAddr, _addToBal);
+        _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
+        emit Transfer(sender, _TKNAddr, _addToBal);
 
         // Send for burn
-        emit Transfer(TKNAddr, address(_ZERO), _toBeBurned);
+        emit Transfer(_TKNAddr, address(_ZERO), _toBeBurned);
         _totalSupply = _totalSupply - _toBeBurned;
 
         return amount - _feeAmount;
@@ -265,40 +266,40 @@ contract TFRT is IBEP20, Auth {
 
     // Yes, please pay them!
     function swapBack(uint256 amount) internal swapping {
-        address TKNAddr = address(this);
+        address _TKNAddr = address(this);
 
-        uint256 _amountTokensForLiquidity = IBEP20(TKNAddr).balanceOf(TKNAddr) * _liquidityFee / (_totalFee - _burnTax) / 2;
+        uint256 _amountTokensForLiquidity = IBEP20(_TKNAddr).balanceOf(_TKNAddr) * _liquidityFee / (_totalFee - _burnTax) / 2;
 
-        uint256 _amountToSwap = IBEP20(TKNAddr).balanceOf(TKNAddr) - _amountTokensForLiquidity;
+        uint256 _amountToSwap = IBEP20(_TKNAddr).balanceOf(_TKNAddr) - _amountTokensForLiquidity;
         require(_amountToSwap > _swapThreshold, "No tokens held to swap");
 
         address[] memory path = new address[](2);
-        path[0] = TKNAddr;
+        path[0] = _TKNAddr;
         path[1] = _WBNB;
 
         _router.swapExactTokensForETHSupportingFeeOnTransferTokens(
             _amountToSwap,
             0,
             path,
-            TKNAddr,
+            _TKNAddr,
             block.timestamp
         );
 
-        amount = TKNAddr.balance;
+        amount = _TKNAddr.balance;
         
         splitAndDistribute();
     }
 
     function splitAndDistribute() internal {
-        address TKNAddr = address(this);
+        address _TKNAddr = address(this);
 
         // localise variable value to function to reduce reading
         uint256 burnTaxVal = _burnTax;
 
-        uint256 _amountBNB = TKNAddr.balance;
+        uint256 _amountBNB = _TKNAddr.balance;
         require(_amountBNB > 0, "Nothing being held");
 
-        uint256 TokensForLiqPool = IBEP20(TKNAddr).balanceOf(TKNAddr);
+        uint256 TokensForLiqPool = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
 
         // spread the pool costs relative to tax values
         uint256 _amountBNBLiquidity = _amountBNB * _liquidityFee / (_totalFee - burnTaxVal);
@@ -308,7 +309,7 @@ contract TFRT is IBEP20, Auth {
         require(_amountBNBLiquidity > 0, "No BNB for LP to make swap");
         if(_amountBNBLiquidity > 0){
             _router.addLiquidityETH{value: TokensForLiqPool}(
-                TKNAddr,
+                _TKNAddr,
                 _amountBNBLiquidity,
                 0,
                 0,
@@ -321,7 +322,7 @@ contract TFRT is IBEP20, Auth {
         payable(__marketingFeeReceiver).transfer(_amountBNBMarketing);
         payable(__devFeeReceiver).transfer(_amountBNBDev);
 
-        uint256 canUltraBurn = IBEP20(TKNAddr).balanceOf(TKNAddr) / 2;
+        uint256 canUltraBurn = IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 2;
         if(canUltraBurn > _swapThreshold) {
             UltraBurn();
         } else {
@@ -331,20 +332,20 @@ contract TFRT is IBEP20, Auth {
 
     // BURN BABY BURN!!
     function UltraBurn() internal {
-        address TKNAddr = address(this);
+        address _TKNAddr = address(this);
 
-        uint256 toUltraBurn = IBEP20(TKNAddr).balanceOf(TKNAddr) / 2;
+        uint256 toUltraBurn = IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 2;
         if (toUltraBurn > _swapThreshold) {
-            emit Transfer(TKNAddr, address(_ZERO), toUltraBurn);
+            emit Transfer(_TKNAddr, address(_ZERO), toUltraBurn);
             _totalSupply = _totalSupply - toUltraBurn;
 
-            uint256 _remToLiquify = TKNAddr.balance;
-            uint256 _tokensRemToLiquify = IBEP20(TKNAddr).balanceOf(TKNAddr);
+            uint256 _remToLiquify = _TKNAddr.balance;
+            uint256 _tokensRemToLiquify = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
 
             require(_remToLiquify > 0, "No BNB for LP to make swap");
             if(_remToLiquify > 0){
                 _router.addLiquidityETH{value: _tokensRemToLiquify}(
-                    TKNAddr,
+                    _TKNAddr,
                     _remToLiquify,
                     0,
                     0,
