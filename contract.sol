@@ -144,7 +144,7 @@ contract TFRT is IBEP20, Auth {
 
     bool public constant tradingOpen = true;
 
-    bool public swapEnabled = true;
+    bool public constant swapEnabled = true;
     uint256 public swapThreshold = _totalSupply * 1 / 10000;
     bool public inSwap;
     modifier swapping() { inSwap = true; _; inSwap = false; }
