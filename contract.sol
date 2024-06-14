@@ -130,7 +130,7 @@ contract TFRT is IBEP20, Auth {
     uint256 public constant burnTax         = 10;
     uint256 public constant marketingFee    = 5;
     uint256 public constant devFee          = 5;
-    uint256 public totalFee        = marketingFee + liquidityFee + devFee + burnTax; // total 3%
+    uint256 public constant totalFee        = marketingFee + liquidityFee + devFee + burnTax; // total 3%
     uint256 public constant feeDenominator  = 1000;
 
     uint256 public constant sellMultiplier  = 100;
