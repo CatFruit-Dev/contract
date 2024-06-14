@@ -114,8 +114,8 @@ contract TFRT is IBEP20, Auth {
     address private constant _ZERO = 0x0000000000000000000000000000000000000000;
     address private constant _DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
 
-    string public constant _name = "TEST6";
-    string public constant _symbol = "T6";
+    string public constant _name = "TEST8";
+    string public constant _symbol = "T8";
     uint8 private constant _decimals = 2;
 
     uint256 private _totalSupply = 10000 * 10**6 * 10**_decimals; //10B with 2 decimal places
@@ -215,6 +215,12 @@ contract TFRT is IBEP20, Auth {
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"Cannot buy that much");}
 
+        if(shouldSwapBack()){
+            _inSwap = true;
+            swapBack(amount);
+            _inSwap = false;
+        }
+
         _balances[sender] = _balances[sender] - amount;
 
         uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == _pair)) : amount;
@@ -224,20 +230,12 @@ contract TFRT is IBEP20, Auth {
         _amountReceived = 0;
 
         emit Transfer(sender, recipient, _amntR);
-
-        if(shouldSwapBack()){
-            _inSwap = true;
-            swapBack(amount);
-            _inSwap = false;
-        }
-
         return true;
     }
     
     function _basicTransfer(address sender, address recipient, uint256 amount) internal returns (bool) {
         _balances[sender] = _balances[sender] - amount;
         _balances[recipient] = _balances[recipient] + amount;
-
         uint256 _toTran = amount;
         amount = 0;
         emit Transfer(sender, recipient, _toTran);
@@ -256,6 +254,9 @@ contract TFRT is IBEP20, Auth {
         uint256 _toBeBurned = amount * _burnTax * multiplier / (_feeDenominator * 100);
 
         uint256 _addToBal = _feeAmount - _toBeBurned;
+
+        _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
+        emit Transfer(sender, _TKNAddr, _addToBal);
 
         // Send for burn
 
@@ -361,24 +362,28 @@ contract TFRT is IBEP20, Auth {
 
         uint256 toUltraBurn = IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 2;
         if (toUltraBurn > _swapThreshold) {
+            emit Transfer(_TKNAddr, address(_ZERO), toUltraBurn);
+            _totalSupply = _totalSupply - toUltraBurn;
 
             uint256 _remToLiquify = _TKNAddr.balance;
             uint256 _tokensRemToLiquify = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
 
-            _totalSupply = _totalSupply - toUltraBurn;
-            emit Transfer(_TKNAddr, address(_ZERO), toUltraBurn);
+            uint256 _toL = _remToLiquify;
+            uint256 _tToL = _tokensRemToLiquify;
+            _remToLiquify = 0;
+            _tokensRemToLiquify = 0;
 
-            require(_remToLiquify > 0, "No BNB for LP to make swap");
-            if(_remToLiquify > 0){
-                _router.addLiquidityETH{value: _tokensRemToLiquify}(
+            require(_toL > 0, "No BNB for LP to make swap");
+            if(_toL > 0){
+                _router.addLiquidityETH{value: _tToL}(
                     _TKNAddr,
-                    _remToLiquify,
+                    _toL,
                     0,
                     0,
                     __autoLiquidityReceiver,
                     block.timestamp
                 );
-                emit AutoLiquify(_remToLiquify, _tokensRemToLiquify);
+                emit AutoLiquify(_toL, _tToL);
             }
         }
     }
