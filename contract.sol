@@ -5,9 +5,6 @@ NOTES
 check amounts are being calculated and distributed
 make sure all deductions are accounted for
 
-fix 6x precision loss during division issues
-fix 4x Check-effects-interaction issues
-
 */
 
 pragma solidity 0.8.26;
@@ -111,23 +108,23 @@ interface IDEXRouter {
 
 // Anyway, the real deal below
 contract TFRT is IBEP20, Auth {
-    address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
-    //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address DEAD = 0x000000000000000000000000000000000000dEaD;
-    address ZERO = 0x0000000000000000000000000000000000000000;
-    address DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
+    address public WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
+    //address public WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address public DEAD = 0x000000000000000000000000000000000000dEaD;
+    address public ZERO = 0x0000000000000000000000000000000000000000;
+    address public DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
 
-    string constant _name = "TEST6";
-    string constant _symbol = "T6";
-    uint8 constant _decimals = 0;
+    string public constant _name = "TEST6";
+    string public constant _symbol = "T6";
+    uint8 public constant _decimals = 2;
 
-    uint256 _totalSupply = 10000 * 10**6; //10B with no decimal places
+    uint256 public _totalSupply = 10000 * 10**6; //10B with no decimal places
 
-    mapping (address => uint256) _balances;
-    mapping (address => mapping (address => uint256)) _allowances;
+    mapping (address => uint256) public _balances;
+    mapping (address => mapping (address => uint256)) public _allowances;
 
-    mapping (address => bool) isFeeExempt;
-    mapping (address => bool) isDividendExempt;
+    mapping (address => bool) public isFeeExempt;
+    mapping (address => bool) public isDividendExempt;
 
     uint256 public liquidityFee    = 10;
     uint256 public burnTax         = 10;
@@ -149,7 +146,7 @@ contract TFRT is IBEP20, Auth {
 
     bool public swapEnabled = true;
     uint256 public swapThreshold = _totalSupply * 1 / 10000;
-    bool inSwap;
+    bool public inSwap;
     modifier swapping() { inSwap = true; _; inSwap = false; }
 
     constructor () Auth(msg.sender) {
@@ -268,7 +265,7 @@ contract TFRT is IBEP20, Auth {
 
     // Yes, please pay them!
     function swapBack(uint256 amount) internal swapping {
-        uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)) / (totalFee - burnTax) * liquidityFee / 2;
+        uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)) * liquidityFee / (totalFee - burnTax) / 2;
 
         uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)) - amountTokensForLiquidity; // get all tokens from token address
         require(amountToSwap > swapThreshold, "No tokens held to swap");
@@ -298,9 +295,9 @@ contract TFRT is IBEP20, Auth {
         uint256 TokensForLiqPool = IBEP20(address(this)).balanceOf(address(this));
 
         // spread the pool costs relative to tax values
-        uint256 amountBNBLiquidity = amountBNB / (totalFee - burnTax) * liquidityFee;
-        uint256 amountBNBMarketing = amountBNB / (totalFee - burnTax) * marketingFee;
-        uint256 amountBNBDev = amountBNB / (totalFee - burnTax) * devFee;
+        uint256 amountBNBLiquidity = amountBNB * liquidityFee / (totalFee - burnTax);
+        uint256 amountBNBMarketing = amountBNB * marketingFee / (totalFee - burnTax);
+        uint256 amountBNBDev = amountBNB * devFee / (totalFee - burnTax);
 
         require(amountBNBLiquidity > 0, "No BNB for LP to make swap");
         if(amountBNBLiquidity > 0){
