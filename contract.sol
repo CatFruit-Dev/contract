@@ -2,7 +2,6 @@
 
 /*
 NOTES
-need to add reentrancyguard
 check amounts are being calculated and distributed
 make sure all deductions are accounted for
 
@@ -24,6 +23,7 @@ interface IBEP20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
+// Who's the boss?
 abstract contract Auth {
     address internal owner;
     mapping (address => bool) internal authorizations;
@@ -73,6 +73,7 @@ interface IDEXFactory {
     function createPair(address tokenA, address tokenB) external returns (address pair);
 }
 
+// Which way please?
 interface IDEXRouter {
     function factory() external pure returns (address);
     function WBNB() external pure returns (address);
@@ -121,6 +122,7 @@ interface IDEXRouter {
     ) external;
 }
 
+// Anyway, the real deal below
 contract TFRT is IBEP20, Auth {
     address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
     //address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
@@ -225,6 +227,13 @@ contract TFRT is IBEP20, Auth {
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"You cannot buy that much.");}
 
+        if(shouldSwapBack()){
+            // Prevent reentrancy during swap
+            inSwap = true;
+            swapBack(amount);
+            inSwap = false;
+        }
+
         //Exchange tokens
         _balances[sender] = _balances[sender] - amount;
 
@@ -232,14 +241,6 @@ contract TFRT is IBEP20, Auth {
         _balances[recipient] = _balances[recipient] + amountReceived;
 
         emit Transfer(sender, recipient, amountReceived);
-
-        // Perform swap back if needed, but ensure this is done after state update
-        if(shouldSwapBack()){
-            inSwap = true;
-            swapBack();
-            inSwap = false;
-        }
-
         return true;
     }
     
@@ -250,6 +251,7 @@ contract TFRT is IBEP20, Auth {
         return true;
     }
 
+    // Are you taxable? probably
     function shouldTakeFee(address sender) internal view returns (bool) {
         return !isFeeExempt[sender];
     }
@@ -271,6 +273,7 @@ contract TFRT is IBEP20, Auth {
         return amount - feeAmount;
     }
 
+    // Do we have enough to pay the gods?
     function shouldSwapBack() internal view returns (bool) {
         return msg.sender != pair
         && !inSwap
@@ -278,7 +281,8 @@ contract TFRT is IBEP20, Auth {
         && _balances[address(this)] >= swapThreshold;
     }
 
-    function swapBack() internal swapping {
+    // Yes, please pay them!
+    function swapBack(uint256 amount) internal swapping {
         uint256 amountTokensForLiquidity = IBEP20(address(this)).balanceOf(address(this)) / (totalFee - burnTax) * liquidityFee / 2;
 
         uint256 amountToSwap = IBEP20(address(this)).balanceOf(address(this)) - amountTokensForLiquidity; // get all tokens from token address
@@ -295,6 +299,8 @@ contract TFRT is IBEP20, Auth {
             address(this),
             block.timestamp
         );
+
+        amount = address(this).balance;
         
         splitAndDistribute();
     }
@@ -335,6 +341,7 @@ contract TFRT is IBEP20, Auth {
         }
     }
 
+    // BURN BABY BURN!!
     function UltraBurn() internal {
         uint256 toUltraBurn = IBEP20(address(this)).balanceOf(address(this)) / 2;
         if (toUltraBurn > swapThreshold) {
@@ -369,6 +376,7 @@ contract TFRT is IBEP20, Auth {
         devFeeReceiver = address(DEV);
     }
     
+    // How much do we have to play with?
     function getCirculatingSupply() external view returns (uint256) {
         return _totalSupply;
     }
