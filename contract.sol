@@ -217,9 +217,7 @@ contract TFRT is IBEP20, Auth {
 
         if(shouldSwapBack()){
             _inSwap = true;
-            uint256 _toTran4 = amount;
-            amount = 0;
-            swapBack(_toTran4);
+            swapBack(amount);
             _inSwap = false;
         }
 
@@ -258,12 +256,10 @@ contract TFRT is IBEP20, Auth {
         uint256 _addToBal = _feeAmount - _toBeBurned;
 
         _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
-        emit Transfer(sender, _TKNAddr, _addToBal);
 
         // Send for burn
 
         _totalSupply = _totalSupply - _toBeBurned;
-        _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
 
         uint256 _atb = _addToBal;
         _addToBal = 0;
