@@ -4,6 +4,8 @@
 NOTES
 check amounts are being calculated and distributed
 make sure all deductions are accounted for
+make ultra burn a bool
+maybe try to make split and dis with swapback
 
 */
 
@@ -143,10 +145,11 @@ contract TFRT is IBEP20, Auth {
 
     bool private constant _tradingOpen = true;
 
-    bool private constant _swapEnabled = true;
     uint256 private _swapThreshold = _totalSupply * 1 / 10000;
     bool private _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
+    bool private _inUBurn;
+    modifier ultraburning() { _inUBurn = true; _; _inUBurn = false; }
 
     constructor () Auth(msg.sender) {
         address _TKNAddr = address(this);
@@ -217,7 +220,7 @@ contract TFRT is IBEP20, Auth {
 
         if(shouldSwapBack()){
             _inSwap = true;
-            swapBack(amount);
+            swapBack();
             _inSwap = false;
         }
 
@@ -275,12 +278,11 @@ contract TFRT is IBEP20, Auth {
     function shouldSwapBack() internal view returns (bool) {
         return msg.sender != _pair
         && !_inSwap
-        && _swapEnabled
         && _balances[address(this)] >= _swapThreshold;
     }
 
     // Yes, please pay them!
-    function swapBack(uint256 amount) internal swapping {
+    function swapBack() internal swapping {
         address _TKNAddr = address(this);
 
         uint256 _amountTokensForLiquidity = IBEP20(_TKNAddr).balanceOf(_TKNAddr) * _liquidityFee / (_totalFee - _burnTax) / 2;
@@ -302,23 +304,22 @@ contract TFRT is IBEP20, Auth {
             _TKNAddr,
             block.timestamp
         );
-        amount = _TKNAddr.balance;     
-        splitAndDistribute();
+ 
+        uint256 _BNBReceived = _TKNAddr.balance;
+        splitAndDistribute(_BNBReceived);
     }
 
-    function splitAndDistribute() internal {
+    function splitAndDistribute(uint256 _BNBReceived) internal {
         address _TKNAddr = address(this);
 
-        uint256 burnTaxVal = _burnTax;
-
-        uint256 _amountBNB = _TKNAddr.balance;
+        uint256 _amountBNB = _BNBReceived;
         require(_amountBNB > 0, "Nothing being held");
 
         uint256 TokensForLiqPool = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
 
-        uint256 _amountBNBLiquidity = _amountBNB * _liquidityFee / (_totalFee - burnTaxVal);
-        uint256 _amountBNBMarketing = _amountBNB * _marketingFee / (_totalFee - burnTaxVal);
-        uint256 _amountBNBDev = _amountBNB * _devFee / (_totalFee - burnTaxVal);
+        uint256 _amountBNBLiquidity = _amountBNB * _liquidityFee / (_totalFee - _burnTax);
+        uint256 _amountBNBMarketing = _amountBNB * _marketingFee / (_totalFee - _burnTax);
+        uint256 _amountBNBDev = _amountBNB * _devFee / (_totalFee - _burnTax);
 
         uint256 _bnbL = _amountBNBLiquidity;
         _amountBNBLiquidity = 0;
@@ -344,18 +345,16 @@ contract TFRT is IBEP20, Auth {
 
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(__devFeeReceiver).transfer(_bnbD);
+    }
 
-        uint256 canUltraBurn = IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 2;
-
-        if(canUltraBurn > _swapThreshold) {
-            UltraBurn();
-        } else {
-            canUltraBurn = 0;
-        }
+    function CanUltraBurn() internal view returns (bool) {
+        return msg.sender != _pair
+        && !_inUBurn
+        && _balances[address(this)] / 2 >= _swapThreshold;
     }
 
     // BURN BABY BURN!!
-    function UltraBurn() internal {
+    function UltraBurn() internal ultraburning {
         address _TKNAddr = address(this);
 
         uint256 toUltraBurn = IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 2;
