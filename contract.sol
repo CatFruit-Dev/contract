@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 /*
-NOTES
-check amounts are being calculated and distributed
-make sure all deductions are accounted for
-make ultra burn a bool
-maybe try to make split and dis with swapback
+BEP20 Deflationary token for BSC
+
+https://cat-friut.com
+https://x.com/catfruitcoin
+https://t.me/catfruitcoin
 
 */
 
@@ -64,17 +64,6 @@ interface IDEXRouter {
     function factory() external pure returns (address);
     function WBNB() external pure returns (address);
 
-    function addLiquidity(
-        address tokenA,
-        address tokenB,
-        uint amountADesired,
-        uint amountBDesired,
-        uint amountAMin,
-        uint amountBMin,
-        address to,
-        uint deadline
-    ) external returns (uint amountA, uint amountB, uint liquidity);
-
     function addLiquidityETH(
         address token,
         uint amountTokenDesired,
@@ -83,21 +72,6 @@ interface IDEXRouter {
         address to,
         uint deadline
     ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
-
-    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external;
-
-    function swapExactETHForTokensSupportingFeeOnTransferTokens(
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external payable;
 
     function swapExactTokensForETHSupportingFeeOnTransferTokens(
         uint amountIn,
@@ -120,7 +94,7 @@ contract TFRT is IBEP20, Auth {
     string public constant _symbol = "T8";
     uint8 private constant _decimals = 2;
 
-    uint256 private _totalSupply = 10000 * 10**6 * 10**_decimals; //10B with 2 decimal places
+    uint256 private _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
 
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
@@ -148,12 +122,10 @@ contract TFRT is IBEP20, Auth {
     uint256 private _swapThreshold = _totalSupply * 1 / 10000;
     bool private _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
-    bool private _inUBurn;
-    modifier ultraburning() { _inUBurn = true; _; _inUBurn = false; }
 
     constructor () Auth(msg.sender) {
         address _TKNAddr = address(this);
-        //router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+       // _router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _WBNB);
 
@@ -209,11 +181,8 @@ contract TFRT is IBEP20, Auth {
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
         if(_inSwap){ return _basicTransfer(sender, recipient, amount); }
-        if(_inUBurn){ return _basicTransfer(sender, recipient, amount); }
 
-        if(!authorizations[sender] && !authorizations[recipient]){
-            require(_tradingOpen,"Trading not open");
-        }
+        if(!authorizations[sender] && !authorizations[recipient]){ require(_tradingOpen,"Trading not open"); }
 
         if (!authorizations[sender] && recipient != address(this)  && recipient != address(_DEAD) && recipient != _pair && recipient != __marketingFeeReceiver && recipient != __devFeeReceiver  && recipient != __autoLiquidityReceiver){
             uint256 heldTokens = balanceOf(recipient);
@@ -223,11 +192,6 @@ contract TFRT is IBEP20, Auth {
             _inSwap = true;
             swapBack();
             _inSwap = false;
-        }
-        if(CanUltraBurn()){
-            _inUBurn = true;
-            UltraBurn();
-            _inUBurn = false;
         }
 
         _balances[sender] = _balances[sender] - amount;
@@ -267,7 +231,6 @@ contract TFRT is IBEP20, Auth {
         _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
 
         // Send for burn
-
         _totalSupply = _totalSupply - _toBeBurned;
 
         uint256 _atb = _addToBal;
@@ -277,6 +240,7 @@ contract TFRT is IBEP20, Auth {
 
         emit Transfer(sender, _TKNAddr, _atb);
         emit Transfer(_TKNAddr, address(_ZERO), _tbb);
+
         return amount - _feeAmount;
     }
 
@@ -285,12 +249,6 @@ contract TFRT is IBEP20, Auth {
         return msg.sender != _pair
         && !_inSwap
         && _balances[address(this)] >= _swapThreshold;
-    }
-
-    function CanUltraBurn() internal view returns (bool) {
-        return msg.sender != _pair
-        && !_inUBurn
-        && (_balances[address(this)] / 2) >= _swapThreshold;
     }
 
     // Yes, please pay them!
@@ -357,38 +315,6 @@ contract TFRT is IBEP20, Auth {
 
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(__devFeeReceiver).transfer(_bnbD);
-    }
-
-    // BURN BABY BURN!!
-    function UltraBurn() internal ultraburning {
-        address _TKNAddr = address(this);
-
-        uint256 toUltraBurn = IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 2;
-        if (toUltraBurn > _swapThreshold) {
-            emit Transfer(_TKNAddr, address(_ZERO), toUltraBurn);
-            _totalSupply = _totalSupply - toUltraBurn;
-
-            uint256 _remToLiquify = _TKNAddr.balance;
-            uint256 _tokensRemToLiquify = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
-
-            uint256 _toL = _remToLiquify;
-            uint256 _tToL = _tokensRemToLiquify;
-            _remToLiquify = 0;
-            _tokensRemToLiquify = 0;
-
-            require(_toL > 0, "No BNB for LP to make swap");
-            if(_toL > 0){
-                _router.addLiquidityETH{value: _toL}(
-                    _TKNAddr,
-                    _tToL,
-                    0,
-                    0,
-                    __autoLiquidityReceiver,
-                    block.timestamp
-                );
-                emit AutoLiquify(_toL, _tToL);
-            }
-        }
     }
 
     function setIsFeeExempt(address holder, bool exempt) external onlyOwner {_isFeeExempt[holder] = exempt;}
