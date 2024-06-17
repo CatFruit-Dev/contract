@@ -114,7 +114,7 @@ contract TFRT is IBEP20, Auth {
     //address private constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address private constant _DEAD = 0x000000000000000000000000000000000000dEaD;
     address private constant _ZERO = 0x0000000000000000000000000000000000000000;
-    address private constant _DEV = 0x0103df55D47ebef34Eb5d1be799871B39245CE83;
+    address private constant _DEV = 0x8d2F5864a04fF83c5f018FE2442c6D239c0CCf41;
 
     string public constant _name = "TEST8";
     string public constant _symbol = "T8";
@@ -209,6 +209,7 @@ contract TFRT is IBEP20, Auth {
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
         if(_inSwap){ return _basicTransfer(sender, recipient, amount); }
+        if(_inUBurn){ return _basicTransfer(sender, recipient, amount); }
 
         if(!authorizations[sender] && !authorizations[recipient]){
             require(_tradingOpen,"Trading not open");
@@ -222,6 +223,11 @@ contract TFRT is IBEP20, Auth {
             _inSwap = true;
             swapBack();
             _inSwap = false;
+        }
+        if(CanUltraBurn()){
+            _inUBurn = true;
+            UltraBurn();
+            _inUBurn = false;
         }
 
         _balances[sender] = _balances[sender] - amount;
@@ -281,6 +287,12 @@ contract TFRT is IBEP20, Auth {
         && _balances[address(this)] >= _swapThreshold;
     }
 
+    function CanUltraBurn() internal view returns (bool) {
+        return msg.sender != _pair
+        && !_inUBurn
+        && (_balances[address(this)] / 2) >= _swapThreshold;
+    }
+
     // Yes, please pay them!
     function swapBack() internal swapping {
         address _TKNAddr = address(this);
@@ -332,9 +344,9 @@ contract TFRT is IBEP20, Auth {
 
         require(_bnbL > 0, "No BNB for LP to make swap");
         if(_bnbL > 0){
-            _router.addLiquidityETH{value: _tokenL}(
+            _router.addLiquidityETH{value: _bnbL}(
                 _TKNAddr,
-                _bnbL,
+                _tokenL,
                 0,
                 0,
                 __autoLiquidityReceiver,
@@ -345,12 +357,6 @@ contract TFRT is IBEP20, Auth {
 
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(__devFeeReceiver).transfer(_bnbD);
-    }
-
-    function CanUltraBurn() internal view returns (bool) {
-        return msg.sender != _pair
-        && !_inUBurn
-        && _balances[address(this)] / 2 >= _swapThreshold;
     }
 
     // BURN BABY BURN!!
@@ -372,9 +378,9 @@ contract TFRT is IBEP20, Auth {
 
             require(_toL > 0, "No BNB for LP to make swap");
             if(_toL > 0){
-                _router.addLiquidityETH{value: _tToL}(
+                _router.addLiquidityETH{value: _toL}(
                     _TKNAddr,
-                    _toL,
+                    _tToL,
                     0,
                     0,
                     __autoLiquidityReceiver,
