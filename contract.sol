@@ -84,14 +84,13 @@ interface IDEXRouter {
 
 // Anyway, the real deal below
 contract TFRT is IBEP20, Auth {
-    address private constant _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
-    //address private constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address private constant _WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address private constant _DEAD = 0x000000000000000000000000000000000000dEaD;
     address private constant _ZERO = 0x0000000000000000000000000000000000000000;
-    address private constant _DEV = 0x8d2F5864a04fF83c5f018FE2442c6D239c0CCf41;
+    address private constant _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
 
-    string public constant _name = "TEST8";
-    string public constant _symbol = "T8";
+    string public constant _name = "CatFruit Coin";
+    string public constant _symbol = "CFRUIT";
     uint8 private constant _decimals = 7;
 
     uint256 private _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
@@ -125,8 +124,7 @@ contract TFRT is IBEP20, Auth {
 
     constructor () Auth(msg.sender) {
         address _TKNAddr = address(this);
-       // _router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-        _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
+        _router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _WBNB);
 
         _allowances[_TKNAddr][address(_router)] = type(uint256).max;
