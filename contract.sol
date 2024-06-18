@@ -83,42 +83,42 @@ interface IDEXRouter {
 }
 
 // Anyway, the real deal below
-contract TFRT is IBEP20, Auth {
+contract CatFruit is IBEP20, Auth {
     address private constant _WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address private constant _DEAD = 0x000000000000000000000000000000000000dEaD;
     address private constant _ZERO = 0x0000000000000000000000000000000000000000;
     address private constant _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
 
-    string public constant _name = "CatFruit Coin";
+    string public constant _name = "CatFruit";
     string public constant _symbol = "CFRUIT";
-    uint8 private constant _decimals = 7;
+    uint8 public constant _decimals = 7;
 
-    uint256 private _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
+    uint256 public _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
 
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
 
     mapping (address => bool) public _isFeeExempt;
 
-    uint256 private constant _liquidityFee    = 10;
-    uint256 private constant _burnTax         = 10;
-    uint256 private constant _marketingFee    = 5;
-    uint256 private constant _devFee          = 5;
-    uint256 private constant _totalFee        = _marketingFee + _liquidityFee + _devFee + _burnTax; // total 3%
+    uint256 public constant _liquidityFee    = 10;
+    uint256 public constant _burnTax         = 10;
+    uint256 public constant _marketingFee    = 5;
+    uint256 public constant _devFee          = 5;
+    uint256 public constant _totalFee        = _marketingFee + _liquidityFee + _devFee + _burnTax; // total 3%
     uint256 private constant _feeDenominator  = 1000;
 
     uint256 private constant _sellMultiplier  = 100;
 
-    address private __autoLiquidityReceiver;
-    address private __marketingFeeReceiver;
-    address private __devFeeReceiver;
+    address public __autoLiquidityReceiver;
+    address public __marketingFeeReceiver;
+    address public __devFeeReceiver;
 
     IDEXRouter private _router;
-    address private _pair;
+    address public _pair;
 
-    bool private constant _tradingOpen = true;
+    bool public constant _tradingOpen = true;
 
-    uint256 private _swapThreshold = _totalSupply * 1 / 10000;
+    uint256 public _swapThreshold = _totalSupply * 1 / 10000;
     bool private _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
