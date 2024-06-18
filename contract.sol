@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 /*
-BEP20 Deflationary token for BSC
+BEP20 Deflationary token with Ultra Burn for BSC
 
 https://cat-friut.com
 https://x.com/catfruitcoin
@@ -180,11 +180,13 @@ contract TFRT is IBEP20, Auth {
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
+        address _TKNAddr = address(this);
+
         if(_inSwap){ return _basicTransfer(sender, recipient, amount); }
 
         if(!authorizations[sender] && !authorizations[recipient]){ require(_tradingOpen,"Trading not open"); }
 
-        if (!authorizations[sender] && recipient != address(this)  && recipient != address(_DEAD) && recipient != _pair && recipient != __marketingFeeReceiver && recipient != __devFeeReceiver  && recipient != __autoLiquidityReceiver){
+        if (!authorizations[sender] && recipient != _TKNAddr && recipient != address(_DEAD) && recipient != _pair && recipient != __marketingFeeReceiver && recipient != __devFeeReceiver  && recipient != __autoLiquidityReceiver){
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"Cannot buy that much");}
 
@@ -203,6 +205,7 @@ contract TFRT is IBEP20, Auth {
         _amountReceived = 0;
 
         emit Transfer(sender, recipient, _amntR);
+
         return true;
     }
     
@@ -240,6 +243,18 @@ contract TFRT is IBEP20, Auth {
 
         emit Transfer(sender, _TKNAddr, _atb);
         emit Transfer(_TKNAddr, address(_ZERO), _tbb);
+
+        // Ultra burn!!!
+        if ((IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 4) >= _swapThreshold && _totalSupply > 9000 * 10**6 * 10**_decimals) {
+            uint256 _UburnAmnt;
+            uint256 _UBurn;
+            _UburnAmnt = _balances[_TKNAddr];
+            _UBurn = _UburnAmnt;
+            _UburnAmnt = 0;
+            _totalSupply = _totalSupply - _UBurn;
+            _balances[_TKNAddr] = _balances[_TKNAddr] - _UBurn;
+            emit Transfer(_TKNAddr, address(_ZERO), _UBurn);
+        }
 
         return amount - _feeAmount;
     }
