@@ -92,7 +92,7 @@ contract TFRT is IBEP20, Auth {
 
     string public constant _name = "TEST8";
     string public constant _symbol = "T8";
-    uint8 private constant _decimals = 2;
+    uint8 private constant _decimals = 7;
 
     uint256 private _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
 
