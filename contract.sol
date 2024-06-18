@@ -243,7 +243,7 @@ contract TFRT is IBEP20, Auth {
         emit Transfer(_TKNAddr, address(_ZERO), _tbb);
 
         // Ultra burn!!!
-        if ((IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 4) >= _swapThreshold && _totalSupply > 9000 * 10**6 * 10**_decimals) {
+        if ((IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 6) >= _swapThreshold && _totalSupply > 9000 * 10**6 * 10**_decimals) {
             uint256 _UburnAmnt;
             uint256 _UBurn;
             _UburnAmnt = _balances[_TKNAddr];
