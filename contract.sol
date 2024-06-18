@@ -6,10 +6,9 @@ BEP20 Deflationary token with Ultra Burn for BSC
 https://cat-friut.com
 https://x.com/catfruitcoin
 https://t.me/catfruitcoin
-
 */
 
-pragma solidity 0.8.26;
+pragma solidity 0.8.23;
 
 interface IBEP20 {
     function totalSupply() external view returns (uint256);
@@ -37,19 +36,14 @@ abstract contract Auth {
     modifier onlyOwner() {require(isOwner(msg.sender), "!OWNER"); _;}
 
     function authorize(address adr) public onlyOwner {authorizations[adr] = true;}
-
     function unauthorize(address adr) public onlyOwner {authorizations[adr] = false;}
-
     function isOwner(address account) public view returns (bool) {return account == owner;}
-
     function isAuthorized(address adr) public view returns (bool) {return authorizations[adr];}
-
     function transferOwnership(address payable adr) public onlyOwner {
         owner = adr;
         authorizations[adr] = true;
         emit OwnershipTransferred(adr);
     }
-
     function renounceOwnership() public virtual onlyOwner {transferOwnership(payable(address(0)));}
 
     event OwnershipTransferred(address owner);
@@ -97,7 +91,6 @@ contract CatFruit is IBEP20, Auth {
 
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
-
     mapping (address => bool) public _isFeeExempt;
 
     uint256 public constant _liquidityFee    = 10;
@@ -106,7 +99,6 @@ contract CatFruit is IBEP20, Auth {
     uint256 public constant _devFee          = 5;
     uint256 public constant _totalFee        = _marketingFee + _liquidityFee + _devFee + _burnTax; // total 3%
     uint256 private constant _feeDenominator  = 1000;
-
     uint256 private constant _sellMultiplier  = 100;
 
     address public __autoLiquidityReceiver;
@@ -181,13 +173,10 @@ contract CatFruit is IBEP20, Auth {
         address _TKNAddr = address(this);
 
         if(_inSwap){ return _basicTransfer(sender, recipient, amount); }
-
         if(!authorizations[sender] && !authorizations[recipient]){ require(_tradingOpen,"Trading not open"); }
-
         if (!authorizations[sender] && recipient != _TKNAddr && recipient != address(_DEAD) && recipient != _pair && recipient != __marketingFeeReceiver && recipient != __devFeeReceiver  && recipient != __autoLiquidityReceiver){
             uint256 heldTokens = balanceOf(recipient);
             require((heldTokens + amount) <= _totalSupply,"Cannot buy that much");}
-
         if(shouldSwapBack()){
             _inSwap = true;
             swapBack();
@@ -198,7 +187,6 @@ contract CatFruit is IBEP20, Auth {
 
         uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == _pair)) : amount;
         _balances[recipient] = _balances[recipient] + _amountReceived;
-
         uint256 _amntR = _amountReceived;
         _amountReceived = 0;
 
@@ -226,7 +214,6 @@ contract CatFruit is IBEP20, Auth {
         require(amount > 0, "No fees: amount is empty");
         uint256 _feeAmount = amount * _totalFee * multiplier / (_feeDenominator * 100);
         uint256 _toBeBurned = amount * _burnTax * multiplier / (_feeDenominator * 100);
-
         uint256 _addToBal = _feeAmount - _toBeBurned;
 
         _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
@@ -269,7 +256,6 @@ contract CatFruit is IBEP20, Auth {
         address _TKNAddr = address(this);
 
         uint256 _amountTokensForLiquidity = IBEP20(_TKNAddr).balanceOf(_TKNAddr) * _liquidityFee / (_totalFee - _burnTax) / 2;
-
         uint256 _amountToSwap = IBEP20(_TKNAddr).balanceOf(_TKNAddr) - _amountTokensForLiquidity;
         require(_amountToSwap > _swapThreshold, "No tokens held to swap");
 
@@ -279,7 +265,6 @@ contract CatFruit is IBEP20, Auth {
         address[] memory path = new address[](2);
         path[0] = _TKNAddr;
         path[1] = _WBNB;
-
         _router.swapExactTokensForETHSupportingFeeOnTransferTokens(
             _swap,
             0,
@@ -287,7 +272,6 @@ contract CatFruit is IBEP20, Auth {
             _TKNAddr,
             block.timestamp
         );
- 
         uint256 _BNBReceived = _TKNAddr.balance;
         splitAndDistribute(_BNBReceived);
     }
@@ -299,7 +283,6 @@ contract CatFruit is IBEP20, Auth {
         require(_amountBNB > 0, "Nothing being held");
 
         uint256 TokensForLiqPool = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
-
         uint256 _amountBNBLiquidity = _amountBNB * _liquidityFee / (_totalFee - _burnTax);
         uint256 _amountBNBMarketing = _amountBNB * _marketingFee / (_totalFee - _burnTax);
         uint256 _amountBNBDev = _amountBNB * _devFee / (_totalFee - _burnTax);
@@ -325,7 +308,6 @@ contract CatFruit is IBEP20, Auth {
             );
             emit AutoLiquify(_bnbL, _tokenL);
         }
-
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(__devFeeReceiver).transfer(_bnbD);
     }
