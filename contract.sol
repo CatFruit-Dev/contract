@@ -3,7 +3,7 @@
 /*
 BEP20 Deflationary token with Ultra Burn for BSC
 
-https://cat-friut.com
+https://cat-fruit.com
 https://x.com/catfruitcoin
 https://t.me/catfruitcoin
 */
@@ -110,7 +110,7 @@ contract CatFruit is IBEP20, Auth {
 
     bool public constant _tradingOpen = true;
 
-    uint256 public _swapThreshold = _totalSupply * 1 / 10000;
+    uint256 public _swapThreshold = _totalSupply * 2 / 10000;
     bool private _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
@@ -315,8 +315,8 @@ contract CatFruit is IBEP20, Auth {
     function setIsFeeExempt(address holder, bool exempt) external onlyOwner {_isFeeExempt[holder] = exempt;}
 
     function setFeeReceivers(address autoLiquidityReceiver, address marketingFeeReceiver ) external onlyOwner {
-        autoLiquidityReceiver = __autoLiquidityReceiver;
-        marketingFeeReceiver = __marketingFeeReceiver;
+        __autoLiquidityReceiver = autoLiquidityReceiver;
+        __marketingFeeReceiver = marketingFeeReceiver;
         __devFeeReceiver = address(_DEV);
     }
     
