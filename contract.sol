@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 /*
-BEP20 Deflationary token with Ultra Burn for BSC
+BEP20 Deflationary token for BSC
 
 https://cat-fruit.com
 https://x.com/catfruitcoin
@@ -78,28 +78,21 @@ interface IDEXRouter {
 
 // Anyway, the real deal below
 contract CatFruit is IBEP20, Auth {
-    address private constant _WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address private constant _DEAD = 0x000000000000000000000000000000000000dEaD;
-    address private constant _ZERO = 0x0000000000000000000000000000000000000000;
-    address private constant _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
-
     string public constant _name = "CatFruit";
     string public constant _symbol = "CFRUIT";
     uint8 public constant _decimals = 7;
-
-    uint256 public _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
 
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
     mapping (address => bool) public _isFeeExempt;
 
-    uint256 public constant _liquidityFee    = 10;
-    uint256 public constant _burnTax         = 10;
-    uint256 public constant _marketingFee    = 5;
-    uint256 public constant _devFee          = 5;
-    uint256 public constant _totalFee        = _marketingFee + _liquidityFee + _devFee + _burnTax; // total 3%
-    uint256 private constant _feeDenominator  = 1000;
-    uint256 private constant _sellMultiplier  = 100;
+    uint256 _liquidityFee;
+    uint256 _burnTax;
+    uint256 _marketingFee;
+    uint256 _devFee;
+    uint256 _totalFee;
+    uint256 _feeDenominator;
+    uint256 _sellMultiplier;
 
     address public __autoLiquidityReceiver;
     address public __marketingFeeReceiver;
@@ -110,12 +103,39 @@ contract CatFruit is IBEP20, Auth {
 
     bool public constant _tradingOpen = true;
 
-    uint256 public _swapThreshold = _totalSupply * 2 / 10000;
+    uint256 _swapThreshold;
     bool private _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
-    constructor () Auth(msg.sender) {
-        address _TKNAddr = address(this);
+    address _WBNB;
+    address _DEAD;
+    address _ZERO;
+    address _DEV;
+
+    address _TKNAddr;
+
+    uint256 _totalSupply;
+
+    constructor() Auth(msg.sender) {
+        _TKNAddr = address(this);
+
+        _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
+
+        _swapThreshold = _totalSupply * 2 / 10000;
+
+        _liquidityFee = 10;
+        _burnTax = 10;
+        _marketingFee = 5;
+        _devFee = 5;
+        _totalFee = _marketingFee + _liquidityFee + _devFee + _burnTax; // total 3%
+        _feeDenominator = 1000;
+        _sellMultiplier = 100;
+
+        _WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+        _DEAD = 0x000000000000000000000000000000000000dEaD;
+        _ZERO = 0x0000000000000000000000000000000000000000;
+        _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
+
         _router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _WBNB);
 
@@ -131,8 +151,8 @@ contract CatFruit is IBEP20, Auth {
         _isFeeExempt[address(_router)] = true;        
 
         __autoLiquidityReceiver = msg.sender;
-        __marketingFeeReceiver = msg.sender;
-        __devFeeReceiver = address(_DEV);
+        __marketingFeeReceiver = msg.sender; 
+        __devFeeReceiver = address(_DEV); 
 
         _balances[msg.sender] = _totalSupply;
         emit Transfer(address(0), msg.sender, _totalSupply);
@@ -170,13 +190,11 @@ contract CatFruit is IBEP20, Auth {
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
-        address _TKNAddr = address(this);
-
-        if(_inSwap){ return _basicTransfer(sender, recipient, amount); }
+        if(_inSwap){ revert("Swap in progress, please try again later"); }
         if(!authorizations[sender] && !authorizations[recipient]){ require(_tradingOpen,"Trading not open"); }
-        if (!authorizations[sender] && recipient != _TKNAddr && recipient != address(_DEAD) && recipient != _pair && recipient != __marketingFeeReceiver && recipient != __devFeeReceiver  && recipient != __autoLiquidityReceiver){
-            uint256 heldTokens = balanceOf(recipient);
-            require((heldTokens + amount) <= _totalSupply,"Cannot buy that much");}
+
+        uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == _pair)) : amount;
+
         if(shouldSwapBack()){
             _inSwap = true;
             swapBack();
@@ -185,22 +203,13 @@ contract CatFruit is IBEP20, Auth {
 
         _balances[sender] = _balances[sender] - amount;
 
-        uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == _pair)) : amount;
-        _balances[recipient] = _balances[recipient] + _amountReceived;
-        uint256 _amntR = _amountReceived;
+        uint256 _amntR = _amountReceived;       
         _amountReceived = 0;
+
+        _balances[recipient] = _balances[recipient] + _amntR;
 
         emit Transfer(sender, recipient, _amntR);
 
-        return true;
-    }
-    
-    function _basicTransfer(address sender, address recipient, uint256 amount) internal returns (bool) {
-        _balances[sender] = _balances[sender] - amount;
-        _balances[recipient] = _balances[recipient] + amount;
-        uint256 _toTran3 = amount;
-        amount = 0;
-        emit Transfer(sender, recipient, _toTran3);
         return true;
     }
 
@@ -208,8 +217,6 @@ contract CatFruit is IBEP20, Auth {
     function shouldTakeFee(address sender) internal view returns (bool) {return !_isFeeExempt[sender];}
 
     function takeFee(address sender, uint256 amount, bool isSell) internal returns (uint256) {
-        address _TKNAddr = address(this);
-
         uint256 multiplier = isSell ? _sellMultiplier : 100;
         require(amount > 0, "No fees: amount is empty");
         uint256 _feeAmount = amount * _totalFee * multiplier / (_feeDenominator * 100);
@@ -218,7 +225,6 @@ contract CatFruit is IBEP20, Auth {
 
         _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
 
-        // Send for burn
         _totalSupply = _totalSupply - _toBeBurned;
 
         uint256 _atb = _addToBal;
@@ -228,18 +234,6 @@ contract CatFruit is IBEP20, Auth {
 
         emit Transfer(sender, _TKNAddr, _atb);
         emit Transfer(_TKNAddr, address(_ZERO), _tbb);
-
-        // Ultra burn!!!
-        if ((IBEP20(_TKNAddr).balanceOf(_TKNAddr) / 6) >= _swapThreshold && _totalSupply > 9000 * 10**6 * 10**_decimals) {
-            uint256 _UburnAmnt;
-            uint256 _UBurn;
-            _UburnAmnt = _balances[_TKNAddr];
-            _UBurn = _UburnAmnt;
-            _UburnAmnt = 0;
-            _totalSupply = _totalSupply - _UBurn;
-            _balances[_TKNAddr] = _balances[_TKNAddr] - _UBurn;
-            emit Transfer(_TKNAddr, address(_ZERO), _UBurn);
-        }
 
         return amount - _feeAmount;
     }
@@ -253,8 +247,6 @@ contract CatFruit is IBEP20, Auth {
 
     // Yes, please pay them!
     function swapBack() internal swapping {
-        address _TKNAddr = address(this);
-
         uint256 _amountTokensForLiquidity = IBEP20(_TKNAddr).balanceOf(_TKNAddr) * _liquidityFee / (_totalFee - _burnTax) / 2;
         uint256 _amountToSwap = IBEP20(_TKNAddr).balanceOf(_TKNAddr) - _amountTokensForLiquidity;
         require(_amountToSwap > _swapThreshold, "No tokens held to swap");
@@ -272,14 +264,15 @@ contract CatFruit is IBEP20, Auth {
             _TKNAddr,
             block.timestamp
         );
-        uint256 _BNBReceived = _TKNAddr.balance;
+        uint256 _BNBReceivedIs = _TKNAddr.balance;
+        uint256 _BNBReceived = _BNBReceivedIs;
+        _BNBReceivedIs = 0;
         splitAndDistribute(_BNBReceived);
     }
 
     function splitAndDistribute(uint256 _BNBReceived) internal {
-        address _TKNAddr = address(this);
-
         uint256 _amountBNB = _BNBReceived;
+        _BNBReceived = 0;
         require(_amountBNB > 0, "Nothing being held");
 
         uint256 TokensForLiqPool = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
@@ -317,7 +310,6 @@ contract CatFruit is IBEP20, Auth {
     function setFeeReceivers(address autoLiquidityReceiver, address marketingFeeReceiver ) external onlyOwner {
         __autoLiquidityReceiver = autoLiquidityReceiver;
         __marketingFeeReceiver = marketingFeeReceiver;
-        __devFeeReceiver = address(_DEV);
     }
     
     // How much do we have to play with?
