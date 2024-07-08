@@ -35,16 +35,19 @@ abstract contract Auth {
 
     modifier onlyOwner() {require(isOwner(msg.sender), "!OWNER"); _;}
 
-    function authorize(address adr) public onlyOwner {authorizations[adr] = true;}
-    function unauthorize(address adr) public onlyOwner {authorizations[adr] = false;}
+    mapping (address => bool) public _isFeeExempt;
+
     function isOwner(address account) public view returns (bool) {return account == owner;}
     function isAuthorized(address adr) public view returns (bool) {return authorizations[adr];}
     function transferOwnership(address payable adr) public onlyOwner {
         owner = adr;
-        authorizations[adr] = true;
         emit OwnershipTransferred(adr);
     }
-    function renounceOwnership() public virtual onlyOwner {transferOwnership(payable(address(0)));}
+
+    function renounceOwnership() public virtual onlyOwner {
+        transferOwnership(payable(address(0)));
+        _isFeeExempt[msg.sender] = false;
+    }
 
     event OwnershipTransferred(address owner);
 }
@@ -78,43 +81,43 @@ interface IDEXRouter {
 
 // Anyway, the real deal below
 contract TFRT is IBEP20, Auth {
-    string public constant _name = "TFRT10";
-    string public constant _symbol = "TFRT";
-    uint8 public constant _decimals = 7;
+    string internal constant _name = "TFRT10";
+    string internal constant _symbol = "TFRT";
+    uint8 internal constant _decimals = 7;
 
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
-    mapping (address => bool) public _isFeeExempt;
+    
 
-    uint256 _liquidityFee;
-    uint256 _burnTax;
-    uint256 _marketingFee;
-    uint256 _devFee;
-    uint256 _totalFee;
-    uint256 _feeDenominator;
-    uint256 _sellMultiplier;
+    uint256 public _liquidityFee;
+    uint256 public _burnTax;
+    uint256 public _marketingFee;
+    uint256 public _devFee;
+    uint256 public _totalFee;
+    uint256 internal _feeDenominator;
+    uint256 internal _sellMultiplier;
 
     address public __autoLiquidityReceiver;
     address public __marketingFeeReceiver;
     address public __devFeeReceiver;
 
-    IDEXRouter private _router;
+    IDEXRouter internal _router;
     address public _pair;
 
     bool public constant _tradingOpen = true;
 
-    uint256 _swapThreshold;
-    bool private _inSwap;
+    uint256 internal _swapThreshold;
+    bool internal _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
-    address _WBNB;
-    address _DEAD;
-    address _ZERO;
-    address _DEV;
+    address internal _WBNB;
+    address internal _DEAD;
+    address internal _ZERO;
+    address internal _DEV;
 
-    address _TKNAddr;
+    address internal _TKNAddr;
 
-    uint256 _totalSupply;
+    uint256 internal _totalSupply;
 
     constructor() Auth(msg.sender) {
         _TKNAddr = address(this);
@@ -133,8 +136,10 @@ contract TFRT is IBEP20, Auth {
 
         _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
         //_WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
         _DEAD = 0x000000000000000000000000000000000000dEaD;
         _ZERO = 0x0000000000000000000000000000000000000000;
+
         _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
 
         _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
@@ -143,8 +148,7 @@ contract TFRT is IBEP20, Auth {
 
         _allowances[_TKNAddr][address(_router)] = type(uint256).max;
 
-        _isFeeExempt[msg.sender] = true;
-        _isFeeExempt[address(_DEV)] = true;
+        _isFeeExempt[owner] = true;
         _isFeeExempt[_ZERO] = true;
         _isFeeExempt[_DEAD] = true;
         _isFeeExempt[_TKNAddr] = true;
@@ -156,8 +160,8 @@ contract TFRT is IBEP20, Auth {
         __marketingFeeReceiver = msg.sender; 
         __devFeeReceiver = address(_DEV); 
 
-        _balances[msg.sender] = _totalSupply;
-        emit Transfer(address(0), msg.sender, _totalSupply);
+        _balances[owner] = _totalSupply;
+        emit Transfer(address(0), owner, _totalSupply);
     }
 
     receive() external payable { }
@@ -192,8 +196,14 @@ contract TFRT is IBEP20, Auth {
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
-        if(_inSwap){ revert("Swap in progress, please try again later"); }
-        if(!authorizations[sender] && !authorizations[recipient]){ require(_tradingOpen,"Trading not open"); }
+        if(_inSwap){
+            _balances[sender] = _balances[sender] - amount;
+            _balances[recipient] = _balances[recipient] + amount;
+            uint256 _toTran3 = amount;
+            amount = 0;
+            emit Transfer(sender, recipient, _toTran3);
+            return true;
+        }
 
         uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == _pair)) : amount;
 
@@ -313,9 +323,6 @@ contract TFRT is IBEP20, Auth {
         __autoLiquidityReceiver = autoLiquidityReceiver;
         __marketingFeeReceiver = marketingFeeReceiver;
     }
-    
-    // How much do we have to play with?
-    function getCirculatingSupply() external view returns (uint256) {return _totalSupply;}
 
 event AutoLiquify(uint256 _remToLiquify, uint256 _tokensRemToLiquify);
 }
