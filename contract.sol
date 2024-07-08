@@ -77,9 +77,9 @@ interface IDEXRouter {
 }
 
 // Anyway, the real deal below
-contract CatFruit is IBEP20, Auth {
-    string public constant _name = "CatFruit";
-    string public constant _symbol = "CFRUIT";
+contract TFRT is IBEP20, Auth {
+    string public constant _name = "TFRT10";
+    string public constant _symbol = "TFRT";
     uint8 public constant _decimals = 7;
 
     mapping (address => uint256) public _balances;
@@ -131,12 +131,14 @@ contract CatFruit is IBEP20, Auth {
         _feeDenominator = 1000;
         _sellMultiplier = 100;
 
-        _WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+        _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
+        //_WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
         _DEAD = 0x000000000000000000000000000000000000dEaD;
         _ZERO = 0x0000000000000000000000000000000000000000;
         _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
 
-        _router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+        _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
+        //_router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _WBNB);
 
         _allowances[_TKNAddr][address(_router)] = type(uint256).max;
