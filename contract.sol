@@ -165,7 +165,7 @@ contract CatFruit is IBEP20, Auth {
     function symbol() external pure override returns (string memory) { return _symbol; }
     function name() external pure override returns (string memory) { return _name; }
     function getOwner() external view override returns (address) { return owner; }
-    function balanceOf(address account) public view override returns (uint256) { return _balances[account]; }
+    function balanceOf(address account) external view override returns (uint256) { return _balances[account]; }
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
     function approve(address spender, uint256 amount) external override returns (bool) {
