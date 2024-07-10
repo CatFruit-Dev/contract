@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 /*
-BEP20 Deflationary token for BSC
+CatFruit token
 
 https://cat-fruit.com
 https://x.com/catfruitcoin
@@ -22,6 +22,13 @@ interface IBEP20 {
     function approve(address spender, uint256 amount) external returns (bool);
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+abstract contract Context {
+    function _msgData() internal view virtual returns (bytes memory) {
+        this;
+        return msg.data;
+    }
 }
 
 // Who's the boss?
@@ -88,18 +95,16 @@ contract TFRT is IBEP20, Auth {
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
     
-
-    uint256 public _liquidityFee;
-    uint256 public _burnTax;
-    uint256 public _marketingFee;
-    uint256 public _devFee;
+    uint256 private _liquidityFee;
+    uint256 private _burnTax;
+    uint256 private _marketingFee;
+    uint256 private _devFee;
     uint256 public _totalFee;
     uint256 internal _feeDenominator;
-    uint256 internal _sellMultiplier;
 
     address public __autoLiquidityReceiver;
     address public __marketingFeeReceiver;
-    address public __devFeeReceiver;
+    address private __devFeeReceiver;
 
     IDEXRouter internal _router;
     address public _pair;
@@ -132,15 +137,12 @@ contract TFRT is IBEP20, Auth {
         _devFee = 5;
         _totalFee = _marketingFee + _liquidityFee + _devFee + _burnTax; // total 3%
         _feeDenominator = 1000;
-        _sellMultiplier = 100;
 
         _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
         //_WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
 
         _DEAD = 0x000000000000000000000000000000000000dEaD;
         _ZERO = 0x0000000000000000000000000000000000000000;
-
-        _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
 
         _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         //_router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -154,11 +156,11 @@ contract TFRT is IBEP20, Auth {
         _isFeeExempt[_TKNAddr] = true;
         _isFeeExempt[__marketingFeeReceiver] = true;
         _isFeeExempt[__autoLiquidityReceiver] = true;
-        _isFeeExempt[address(_router)] = true;        
+        _isFeeExempt[address(_router)] = true;   
 
-        __autoLiquidityReceiver = msg.sender;
-        __marketingFeeReceiver = msg.sender; 
-        __devFeeReceiver = address(_DEV); 
+        __autoLiquidityReceiver = _pair;
+        __marketingFeeReceiver = 0x57df3692dcb8F9d8978A83289745C61f824C1603; 
+        __devFeeReceiver = msg.sender; 
 
         _balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
@@ -205,7 +207,7 @@ contract TFRT is IBEP20, Auth {
             return true;
         }
 
-        uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount,(recipient == _pair)) : amount;
+        uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount) : amount;
 
         if(shouldSwapBack()){
             _inSwap = true;
@@ -228,11 +230,10 @@ contract TFRT is IBEP20, Auth {
     // Are you taxable? probably
     function shouldTakeFee(address sender) internal view returns (bool) {return !_isFeeExempt[sender];}
 
-    function takeFee(address sender, uint256 amount, bool isSell) internal returns (uint256) {
-        uint256 multiplier = isSell ? _sellMultiplier : 100;
+    function takeFee(address sender, uint256 amount) internal returns (uint256) {
         require(amount > 0, "No fees: amount is empty");
-        uint256 _feeAmount = amount * _totalFee * multiplier / (_feeDenominator * 100);
-        uint256 _toBeBurned = amount * _burnTax * multiplier / (_feeDenominator * 100);
+        uint256 _feeAmount = amount * _totalFee * 100 / (_feeDenominator * 100);
+        uint256 _toBeBurned = amount * _burnTax * 100 / (_feeDenominator * 100);
         uint256 _addToBal = _feeAmount - _toBeBurned;
 
         _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
