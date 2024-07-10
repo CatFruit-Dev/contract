@@ -24,13 +24,6 @@ interface IBEP20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-abstract contract Context {
-    function _msgData() internal view virtual returns (bytes memory) {
-        this;
-        return msg.data;
-    }
-}
-
 // Who's the boss?
 abstract contract Auth {
     address internal owner;
@@ -317,8 +310,6 @@ contract TFRT is IBEP20, Auth {
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(__devFeeReceiver).transfer(_bnbD);
     }
-
-    function setIsFeeExempt(address holder, bool exempt) external onlyOwner {_isFeeExempt[holder] = exempt;}
 
     function setFeeReceivers(address autoLiquidityReceiver, address marketingFeeReceiver ) external onlyOwner {
         __autoLiquidityReceiver = autoLiquidityReceiver;
