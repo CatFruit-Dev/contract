@@ -3,9 +3,9 @@
 /*
 CatFruit token
 
-https://cat-fruit.com
-https://x.com/catfruitcoin
-https://t.me/catfruitcoin
+Website: https://cat-fruit.com
+Twitter: https://x.com/catfruitcoin
+Telegram: https://t.me/catfruitcoin
 */
 
 pragma solidity 0.8.23;
