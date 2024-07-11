@@ -94,7 +94,7 @@ contract TFRT is IBEP20, Auth {
 
     address public __autoLiquidityReceiver;
     address public __marketingFeeReceiver;
-    address private __devFeeReceiver;
+    address private immutable __devFeeReceiver;
 
     IDEXRouter internal immutable _router;
     address public _pair;
@@ -106,10 +106,10 @@ contract TFRT is IBEP20, Auth {
     address internal immutable _WBNB;
     address internal immutable _DEAD;
     address internal immutable _ZERO;
-    address internal _DEV;
+    address internal immutable _DEV;
     address internal _marketing;
 
-    address internal _TKNAddr;
+    address internal immutable _TKNAddr;
 
     uint256 internal _totalSupply;
 
