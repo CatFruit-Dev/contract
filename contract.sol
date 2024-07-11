@@ -8,7 +8,7 @@ Twitter: https://x.com/catfruitcoin
 Telegram: https://t.me/catfruitcoin
 */
 
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 interface IBEP20 {
     function totalSupply() external view returns (uint256);
@@ -39,14 +39,11 @@ abstract contract Auth {
 
     function isOwner(address account) public view returns (bool) {return account == owner;}
     function isAuthorized(address adr) public view returns (bool) {return authorizations[adr];}
-    function transferOwnership(address payable adr) public onlyOwner {
-        owner = adr;
-        emit OwnershipTransferred(adr);
-    }
 
     function renounceOwnership() public virtual onlyOwner {
-        transferOwnership(payable(address(0)));
         _isFeeExempt[msg.sender] = false;
+        owner = address(0);
+        emit OwnershipTransferred(payable(owner));
     }
 
     event OwnershipTransferred(address owner);
@@ -88,30 +85,29 @@ contract TFRT is IBEP20, Auth {
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
     
-    uint256 private _liquidityFee;
-    uint256 private _burnTax;
-    uint256 private _marketingFee;
-    uint256 private _devFee;
-    uint256 public _totalFee;
-    uint256 internal _feeDenominator;
+    uint256 private immutable _liquidityFee;
+    uint256 private immutable _burnTax;
+    uint256 private immutable _marketingFee;
+    uint256 private immutable _devFee;
+    uint256 public immutable _totalFee;
+    uint256 internal immutable _feeDenominator;
 
     address public __autoLiquidityReceiver;
     address public __marketingFeeReceiver;
     address private __devFeeReceiver;
 
-    IDEXRouter internal _router;
+    IDEXRouter internal immutable _router;
     address public _pair;
-
-    bool public constant _tradingOpen = true;
 
     uint256 internal _swapThreshold;
     bool internal _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
-    address internal _WBNB;
-    address internal _DEAD;
-    address internal _ZERO;
+    address internal immutable _WBNB;
+    address internal immutable _DEAD;
+    address internal immutable _ZERO;
     address internal _DEV;
+    address internal _marketing;
 
     address internal _TKNAddr;
 
@@ -137,6 +133,9 @@ contract TFRT is IBEP20, Auth {
         _DEAD = 0x000000000000000000000000000000000000dEaD;
         _ZERO = 0x0000000000000000000000000000000000000000;
 
+        _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
+        _marketing = 0x57df3692dcb8F9d8978A83289745C61f824C1603;
+
         _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         //_router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _WBNB);
@@ -147,13 +146,14 @@ contract TFRT is IBEP20, Auth {
         _isFeeExempt[_ZERO] = true;
         _isFeeExempt[_DEAD] = true;
         _isFeeExempt[_TKNAddr] = true;
-        _isFeeExempt[__marketingFeeReceiver] = true;
+        //_isFeeExempt[_DEV] = true;
+        _isFeeExempt[_marketing] = true;
         _isFeeExempt[__autoLiquidityReceiver] = true;
         _isFeeExempt[address(_router)] = true;   
 
         __autoLiquidityReceiver = _pair;
-        __marketingFeeReceiver = 0x57df3692dcb8F9d8978A83289745C61f824C1603; 
-        __devFeeReceiver = msg.sender; 
+        __marketingFeeReceiver = _marketing; 
+        __devFeeReceiver = _DEV; 
 
         _balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
@@ -248,7 +248,7 @@ contract TFRT is IBEP20, Auth {
     function shouldSwapBack() internal view returns (bool) {
         return msg.sender != _pair
         && !_inSwap
-        && _balances[address(this)] >= _swapThreshold;
+        && _balances[_TKNAddr] >= _swapThreshold;
     }
 
     // Yes, please pay them!
