@@ -194,8 +194,8 @@ contract TESTF is IBEP20, Auth {
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
     function approve(address spender, uint256 amount) external override returns (bool) {
-        require(amount <= _balances[msg.sender], "Amount cannot be more than you own");
-        require(spender != _TKNAddr, "Addresses cannot be the contract");
+        require(amount <= _balances[msg.sender], "Cannot be more than you own");
+        require(spender != _TKNAddr, "Address cannot be the contract");
         _allowances[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
