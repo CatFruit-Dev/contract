@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 /*
-Catfruit Token
+CatFruit Token
 Ticker: CFRUIT
 Website: https://cat-fruit.com
 Twitter: https://x.com/catfruitcoin
