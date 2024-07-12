@@ -207,6 +207,7 @@ contract TESTF is IBEP20, Auth {
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        require(msg.sender != recipient, "Addresses cannot be the same");
         if(_allowances[sender][msg.sender] != type(uint256).max) {
             _allowances[sender][msg.sender] = _allowances[sender][msg.sender] - amount;
         }
@@ -216,6 +217,7 @@ contract TESTF is IBEP20, Auth {
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
+        require(msg.sender != recipient, "Addresses cannot be the same");
         if(_inSwap){
             _balances[sender] = _balances[sender] - amount;
             _balances[recipient] = _balances[recipient] + amount;
