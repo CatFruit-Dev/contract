@@ -6,6 +6,8 @@ CatFruit token
 Website: https://cat-fruit.com
 Twitter: https://x.com/catfruitcoin
 Telegram: https://t.me/catfruitcoin
+
+
 */
 
 pragma solidity 0.8.26;
@@ -170,6 +172,7 @@ contract TFRT is IBEP20, Auth {
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
     function approve(address spender, uint256 amount) external override returns (bool) {
+        require (amount < _totalSupply);
         _allowances[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
