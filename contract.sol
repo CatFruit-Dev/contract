@@ -101,9 +101,9 @@ interface IDEXRouter {
 }
 
 // Anyway, the real deal below
-contract TFRT is IBEP20, Auth {
-    string internal constant _name = "TFRT10";
-    string internal constant _symbol = "TFRT";
+contract TESTF is IBEP20, Auth {
+    string internal constant _name = "TESTF1";
+    string internal constant _symbol = "TESTF";
     uint8 internal constant _decimals = 7;
 
     mapping (address => uint256) public _balances;
@@ -194,7 +194,7 @@ contract TFRT is IBEP20, Auth {
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
     function approve(address spender, uint256 amount) external override returns (bool) {
-        require (amount < _totalSupply);
+        require(amount < _totalSupply, "Cannot be more than total supply");
         _allowances[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
