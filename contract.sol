@@ -65,9 +65,9 @@ abstract contract Auth {
     function isAuthorized(address adr) public view returns (bool) {return authorizations[adr];}
 
     function renounceOwnership() public virtual onlyOwner {
+        emit OwnershipTransferred(payable(owner));
         _isFeeExempt[msg.sender] = false;
         owner = address(0);
-        emit OwnershipTransferred(payable(owner));
     }
 
     event OwnershipTransferred(address owner);
