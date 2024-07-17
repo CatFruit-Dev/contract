@@ -195,6 +195,7 @@ contract TESTF is IBEP20, Auth {
     function balanceOf(address account) external view override returns (uint256) { return _balances[account]; }
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
+    /// Approve only as much as you are willing to spend.
     function approve(address spender, uint256 amount) public override returns (bool) {
         address _caller = msg.sender;
         require(spender != _caller, "Address cannot be self");
@@ -208,10 +209,12 @@ contract TESTF is IBEP20, Auth {
         return true;
     }
 
+    /// Had enough of constantly being asked every time to approve transactions? approve all transactions here!
     function approveMax(address spender) external returns (bool) {
         return approve(spender, type(uint256).max);
     }
 
+    /// Use this to revoke any approvals that you are unsure about, or have been told to revoke by the official team.
     function revokeApproval(address spender) external returns (bool) {
         return approve(spender, 0);
     }
@@ -367,6 +370,7 @@ contract TESTF is IBEP20, Auth {
         payable(__devFeeReceiver).transfer(_amnt);
     }
 
+    /// Set marketing and liquidity addresses here if not set already.
     function setFeeReceivers(address autoLiquidityReceiver, address marketingFeeReceiver ) external onlyOwner {
         __autoLiquidityReceiver = autoLiquidityReceiver;
         __marketingFeeReceiver = marketingFeeReceiver;
