@@ -195,8 +195,10 @@ contract TESTF is IBEP20, Auth {
 
     function approve(address spender, uint256 amount) public override returns (bool) {
         address _caller = msg.sender;
-        require(spender != _caller, "Cannot approve self");
-        require(spender != _TKNAddr, "Address cannot be the contract");
+        require(spender != _caller, "Address cannot be self");
+        require(spender != _TKNAddr, "Address cannot be contract");
+        require(spender != _ZERO, "Address cannot be zero");
+        require(spender != _DEAD, "Address cannot be dead");
         _allowances[_caller][spender] = 0;
         emit Approval(_caller, spender, 0);        
         _allowances[_caller][spender] = amount;
@@ -206,6 +208,10 @@ contract TESTF is IBEP20, Auth {
 
     function approveMax(address spender) external returns (bool) {
         return approve(spender, type(uint256).max);
+    }
+
+    function revokeApproval(address spender) external returns (bool) {
+        return approve(spender, 0);
     }
 
     function transfer(address recipient, uint256 amount) external override returns (bool) {
