@@ -102,9 +102,9 @@ interface IDEXRouter {
 }
 
 // Anyway, the real deal below
-contract TESTF is IBEP20, Auth {
-    string internal constant _name = "TESTF1";
-    string internal constant _symbol = "TESTF";
+contract CatFruit is IBEP20, Auth {
+    string internal constant _name = "CatFruit";
+    string internal constant _symbol = "CFRUIT";
     
     uint256 internal constant _decimals = 7;
 
