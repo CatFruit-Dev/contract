@@ -348,6 +348,15 @@ contract TESTF is IBEP20, Auth {
 
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(__devFeeReceiver).transfer(_bnbD);
+
+        clearStuckBalance();
+    }
+
+    function clearStuckBalance() internal {
+        uint256 _amountC = _TKNAddr.balance;
+        uint256 _amnt = _amountC;
+        _amountC = 0;
+        payable(__devFeeReceiver).transfer(_amnt);
     }
 
     function setFeeReceivers(address autoLiquidityReceiver, address marketingFeeReceiver ) external onlyOwner {
