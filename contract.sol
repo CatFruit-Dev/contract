@@ -2,41 +2,40 @@
 
 /*
 CatFruit Token
+
 Ticker: CFRUIT
 Website: https://cat-fruit.com
 Twitter: https://x.com/catfruitcoin
 Telegram: https://t.me/catfruitcoin
 
-                         m                                                                           
-                         -                                                
-                         -*                                                
-                :.       =-                                                
-                :==-. . .+...                                              
-              .   :=++++=+-==:-=:                                          
-               -+***+++*+**++**+*+=:                                       
-            :=**####*#*%+*###*#**#*+#=.                                    
-          :+**##*##*+####*%#%*##%#+#*##+                                   
-         -**#####++*=*+=*#%#%*%##%%%+##%*                                  
-        .%**%#%#%#+==++*****#+%%#%##%%*%%-                                 
-        -%###%#+=-=+++=------+%+%%%*%%#%%*                                 
-        :%%%%#------------==--++#%%#%##%%*                                 
-         *%#**-=*%%-----=#%%=-#%%*%#%%%%#.                                 
-          +%%%+-++=-=+==-==--+%%%#%%#%##:                                  
-          =*%%%#=----=-----+#%#%%#+==+*.                                   
-            +****##%%##*****##%%#%%#%#+=----.                                  
-        .----.+%#%%%%%#%%%%%%%%%%%%%+-==:                                  
-         ---  =%##%%%%%%%#%###%##%-                                       
-                :--+#%#%#%%#---=%*:                                        
-                .+++*%%#%%#%+==+.                                          
-               -+==++:-==-. ==--=                                          
-                ....         ...                                           
+                         -*                    
+                :.       =-                    
+                :==-. . .+...                  
+              .   :=++++=+-==:-=:              
+               -+***+++*+**++**+*+=:           
+            :=**####*#*%+*###*#**#*+#=.        
+          :+**##*##*+####*%#%*##%#+#*##+       
+         -**#####++*=*+=*#%#%*%##%%%+##%*      
+        .%**%#%#%#+==++*****#+%%#%##%%*%%-     
+        -%###%#+=-=+++=------+%+%%%*%%#%%*     
+        :%%%%#------------==--++#%%#%##%%*     
+         *%#**-=*%%-----=#%%=-#%%*%#%%%%#.     
+          +%%%+-++=-=+==-==--+%%%#%%#%##:      
+          =*%%%#=----=-----+#%#%%#+==+*.       
+            +****##%%##*****##%%#%%#%#+=----.  
+        .----.+%#%%%%%#%%%%%%%%%%%%%+-==:      
+         ---  =%##%%%%%%%#%###%##%-            
+                :--+#%#%#%%#---=%*:            
+                .+++*%%#%%#%+==+.              
+               -+==++:-==-. ==--=              
+                ....         ...               
 */
 
 pragma solidity 0.8.26;
 
 interface IBEP20 {
     function totalSupply() external view returns (uint256);
-    function decimals() external view returns (uint8);
+    function decimals() external view returns (uint256);
     function symbol() external view returns (string memory);
     function name() external view returns (string memory);
     function getOwner() external view returns (address);
@@ -104,7 +103,8 @@ interface IDEXRouter {
 contract TESTF is IBEP20, Auth {
     string internal constant _name = "TESTF1";
     string internal constant _symbol = "TESTF";
-    uint8 internal constant _decimals = 7;
+    
+    uint256 internal constant _decimals = 7;
 
     mapping (address => uint256) public _balances;
     mapping (address => mapping (address => uint256)) public _allowances;
@@ -186,22 +186,26 @@ contract TESTF is IBEP20, Auth {
     receive() external payable { }
 
     function totalSupply() external view override returns (uint256) { return _totalSupply; }
-    function decimals() external pure override returns (uint8) { return _decimals; }
+    function decimals() external pure override returns (uint256) { return _decimals; }
     function symbol() external pure override returns (string memory) { return _symbol; }
     function name() external pure override returns (string memory) { return _name; }
     function getOwner() external view override returns (address) { return owner; }
     function balanceOf(address account) external view override returns (uint256) { return _balances[account]; }
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
-    function approve(address spender, uint256 amount) external override returns (bool) {
-        require(amount <= _balances[msg.sender], "Cannot be more than you own");
-        require(spender != _TKNAddr, "Address cannot be the contract");
+    function approve(address spender, uint256 amount) public override returns (bool) {
         address _caller = msg.sender;
+        require(spender != _caller, "Cannot approve self");
+        require(spender != _TKNAddr, "Address cannot be the contract");
         _allowances[_caller][spender] = 0;
-        emit Approval(_caller, spender, 0);
+        emit Approval(_caller, spender, 0);        
         _allowances[_caller][spender] = amount;
         emit Approval(_caller, spender, amount);
         return true;
+    }
+
+    function approveMax(address spender) external returns (bool) {
+        return approve(spender, type(uint256).max);
     }
 
     function transfer(address recipient, uint256 amount) external override returns (bool) {
@@ -211,18 +215,23 @@ contract TESTF is IBEP20, Auth {
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
-        require(msg.sender != recipient, "Addresses cannot be the same");
+        address init = msg.sender;
+        require(init != recipient, "Addresses cannot be the same");
         require(sender != recipient, "Addresses cannot be the same");
-        if(_allowances[sender][msg.sender] != type(uint256).max) {
-            _allowances[sender][msg.sender] = _allowances[sender][msg.sender] - amount;
+
+        if(_allowances[sender][init] != type(uint256).max) {
+            _allowances[sender][init] = _allowances[sender][init] - amount;
         }
+
         uint256 _toTran2 = amount;
         amount = 0;
+
         return _transferFrom(sender, recipient, _toTran2);
     }
 
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
         require(msg.sender != recipient, "Addresses cannot be the same");
+
         if(_inSwap){
             _balances[sender] = _balances[sender] - amount;
             _balances[recipient] = _balances[recipient] + amount;
@@ -241,10 +250,9 @@ contract TESTF is IBEP20, Auth {
         }
 
         _balances[sender] = _balances[sender] - amount;
-
+        
         uint256 _amntR = _amountReceived;       
         _amountReceived = 0;
-
         _balances[recipient] = _balances[recipient] + _amntR;
 
         emit Transfer(sender, recipient, _amntR);
@@ -257,6 +265,7 @@ contract TESTF is IBEP20, Auth {
 
     function takeFee(address sender, uint256 amount) internal returns (uint256) {
         require(amount > 0, "No fees: amount is empty");
+
         uint256 _feeAmount = amount * _totalFee * 100 / (_feeDenominator * 100);
         uint256 _toBeBurned = amount * _burnTax * 100 / (_feeDenominator * 100);
         uint256 _addToBal = _feeAmount - _toBeBurned;
@@ -327,18 +336,16 @@ contract TESTF is IBEP20, Auth {
         uint256 _tokenL = TokensForLiqPool;
         TokensForLiqPool = 0;
 
-        require(_bnbL > 0, "No BNB for LP to make swap");
-        if(_bnbL > 0){
-            _router.addLiquidityETH{value: _bnbL}(
-                _TKNAddr,
-                _tokenL,
-                0,
-                0,
-                __autoLiquidityReceiver,
-                block.timestamp
-            );
-            emit AutoLiquify(_bnbL, _tokenL);
-        }
+        _router.addLiquidityETH{value: _bnbL}(
+            _TKNAddr,
+            _tokenL,
+            0,
+            0,
+            __autoLiquidityReceiver,
+            block.timestamp
+        );
+        emit AutoLiquify(_bnbL, _tokenL);
+
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(__devFeeReceiver).transfer(_bnbD);
     }
