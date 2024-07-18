@@ -52,7 +52,6 @@ interface IBEP20 {
 // Who's the boss?
 abstract contract Auth {
     address internal owner;
-    mapping (address => bool) internal authorizations;
 
     constructor(address _owner) {
         owner = _owner;
@@ -63,7 +62,6 @@ abstract contract Auth {
     mapping (address => bool) public _isFeeExempt;
 
     function isOwner(address account) public view returns (bool) {return account == owner;}
-    function isAuthorized(address adr) public view returns (bool) {return authorizations[adr];}
 
     function renounceOwnership() public virtual onlyOwner {
         _isFeeExempt[msg.sender] = false;
@@ -108,13 +106,14 @@ contract CatFruit is IBEP20, Auth {
     
     uint256 internal constant _decimals = 7;
 
-    mapping (address => uint256) public _balances;
-    mapping (address => mapping (address => uint256)) public _allowances;
+    mapping (address => uint256) internal _balances;
+    mapping (address => mapping (address => uint256)) internal _allowances;
     
     uint256 private immutable _liquidityFee;
     uint256 private immutable _burnTax;
     uint256 private immutable _marketingFee;
     uint256 private immutable _devFee;
+    /// Divide by 10 to get real tax percentage amount
     uint256 public immutable _totalFee;
     uint256 internal immutable _feeDenominator;
 
@@ -123,7 +122,7 @@ contract CatFruit is IBEP20, Auth {
     address private immutable __devFeeReceiver;
 
     IDEXRouter internal immutable _router;
-    address public _pair;
+    address public immutable _pair;
 
     uint256 internal _swapThreshold;
     bool internal _inSwap;
@@ -172,7 +171,7 @@ contract CatFruit is IBEP20, Auth {
         _isFeeExempt[_ZERO] = true;
         _isFeeExempt[_DEAD] = true;
         _isFeeExempt[_TKNAddr] = true;
-        //_isFeeExempt[_DEV] = true;
+        _isFeeExempt[_DEV] = true;
         _isFeeExempt[_marketing] = true;
         _isFeeExempt[__autoLiquidityReceiver] = true;
         _isFeeExempt[address(_router)] = true;   
@@ -195,28 +194,38 @@ contract CatFruit is IBEP20, Auth {
     function balanceOf(address account) external view override returns (uint256) { return _balances[account]; }
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
-    /// Approve only as much as you are willing to spend.
-    function approve(address spender, uint256 amount) public override returns (bool) {
+    /** IMPORTANT: It is standard practice (or should be) to approve ONLY as much as you are willing to spend - make sure to check the ammount in the automated approval request.
+    If necessary, you can revoke a spender approval using the "revokeApproval" function and re-approve by doing a token transfer, or here if you know the address.
+    Optionally, you can set your allowance to the maximum possible to avoid having to constantly approve transactions using the "approveMax" function, or in the automated approval request.
+    */
+    function approve(address spender, uint256 amount) external returns (bool) {
         address _caller = msg.sender;
+        require(amount < _balances[_caller]);
         require(spender != _caller, "Address cannot be self");
         require(spender != _TKNAddr, "Address cannot be contract");
         require(spender != _ZERO, "Address cannot be zero");
         require(spender != _DEAD, "Address cannot be dead");
-        _allowances[_caller][spender] = 0;
-        emit Approval(_caller, spender, 0);        
-        _allowances[_caller][spender] = amount;
-        emit Approval(_caller, spender, amount);
-        return true;
+
+        return setApproval(spender, amount);
     }
 
-    /// Had enough of constantly being asked every time to approve transactions? approve all transactions here!
+    /// Had enough of constantly being asked every time to approve transactions? Well, approve all transactions here!
     function approveMax(address spender) external returns (bool) {
-        return approve(spender, type(uint256).max);
+        return setApproval(spender, type(uint256).max);
     }
 
-    /// Use this to revoke any approvals that you are unsure about, or have been told to revoke by the official team.
+    /// Use this function to revoke any approvals that you are unsure about, or have been told to revoke by the official team.
     function revokeApproval(address spender) external returns (bool) {
-        return approve(spender, 0);
+        return setApproval(spender, 0);
+    }
+
+    function setApproval (address spender, uint256 amount) internal returns (bool) {
+        address _approver = msg.sender;
+        _allowances[_approver][spender] = 0;
+        emit Approval(_approver, spender, 0);
+        _allowances[_approver][spender] = amount;
+        emit Approval(_approver, spender, amount);
+        return true;
     }
 
     function transfer(address recipient, uint256 amount) external override returns (bool) {
@@ -271,9 +280,10 @@ contract CatFruit is IBEP20, Auth {
         return true;
     }
 
-    // Are you taxable? probably
+    // Are you taxable?
     function shouldTakeFee(address sender) internal view returns (bool) {return !_isFeeExempt[sender];}
-
+    
+    // Yes... yes, you are
     function takeFee(address sender, uint256 amount) internal returns (uint256) {
         require(amount > 0, "No fees: amount is empty");
 
@@ -296,7 +306,7 @@ contract CatFruit is IBEP20, Auth {
         return amount - _feeAmount;
     }
 
-    // Do we have enough to pay the gods?
+    // Do we have enough to pay the fruit gods?
     function shouldSwapBack() internal view returns (bool) {
         return msg.sender != _pair
         && !_inSwap
@@ -328,6 +338,7 @@ contract CatFruit is IBEP20, Auth {
         splitAndDistribute(_BNBReceived);
     }
 
+    // Distribute the funds to the fruit gods
     function splitAndDistribute(uint256 _BNBReceived) internal {
         uint256 _amountBNB = _BNBReceived;
         _BNBReceived = 0;
@@ -359,11 +370,10 @@ contract CatFruit is IBEP20, Auth {
 
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(__devFeeReceiver).transfer(_bnbD);
-
-        clearStuckBalance();
     }
 
-    function clearStuckBalance() internal {
+    /// Clears the balance only within the contract.
+    function clearStuckBalance() external {
         uint256 _amountC = _TKNAddr.balance;
         uint256 _amnt = _amountC;
         _amountC = 0;
