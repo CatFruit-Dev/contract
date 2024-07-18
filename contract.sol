@@ -211,6 +211,11 @@ contract CatFruit is IBEP20, Auth {
 
     /// Had enough of constantly being asked every time to approve transactions? Well, approve all transactions here!
     function approveMax(address spender) external returns (bool) {
+        require(spender != msg.sender, "Address cannot be self");
+        require(spender != _TKNAddr, "Address cannot be contract");
+        require(spender != _ZERO, "Address cannot be zero");
+        require(spender != _DEAD, "Address cannot be dead");
+
         return setApproval(spender, type(uint256).max);
     }
 
