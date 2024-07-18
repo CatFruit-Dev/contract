@@ -104,7 +104,7 @@ contract CatFruit is IBEP20, Auth {
     string internal constant _name = "CatFruit";
     string internal constant _symbol = "CFRUIT";
     
-    uint256 internal constant _decimals = 7;
+    uint256 internal constant _decimals = 9;
 
     mapping (address => uint256) internal _balances;
     mapping (address => mapping (address => uint256)) internal _allowances;
@@ -200,7 +200,7 @@ contract CatFruit is IBEP20, Auth {
     */
     function approve(address spender, uint256 amount) external returns (bool) {
         address _caller = msg.sender;
-        require(amount < _balances[_caller]);
+        require(amount <= _balances[_caller]);
         require(spender != _caller, "Address cannot be self");
         require(spender != _TKNAddr, "Address cannot be contract");
         require(spender != _ZERO, "Address cannot be zero");
@@ -224,18 +224,20 @@ contract CatFruit is IBEP20, Auth {
         return setApproval(spender, 0);
     }
 
-    function setApproval (address spender, uint256 amount) internal returns (bool) {
+    function setApproval(address spender, uint256 amount) internal returns (bool) {
         address _approver = msg.sender;
         _allowances[_approver][spender] = 0;
         emit Approval(_approver, spender, 0);
         _allowances[_approver][spender] = amount;
         emit Approval(_approver, spender, amount);
+
         return true;
     }
 
     function transfer(address recipient, uint256 amount) external override returns (bool) {
         uint256 _toTran1 = amount;
         amount = 0;
+
         return _transferFrom(msg.sender, recipient, _toTran1);
     }
 
@@ -263,6 +265,7 @@ contract CatFruit is IBEP20, Auth {
             uint256 _toTran3 = amount;
             amount = 0;
             emit Transfer(sender, recipient, _toTran3);
+
             return true;
         }
 
