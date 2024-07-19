@@ -124,6 +124,8 @@ contract CatFruit is IBEP20, Auth {
     IDEXRouter internal immutable _router;
     address public immutable _pair;
 
+    uint256 internal _overloadThreshold;
+
     uint256 internal _swapThreshold;
     bool internal _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
@@ -143,7 +145,9 @@ contract CatFruit is IBEP20, Auth {
 
         _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
 
-        _swapThreshold = _totalSupply * 2 / 10000;
+        _swapThreshold = _totalSupply * 5 / 10000;
+
+        _overloadThreshold = _totalSupply * 75 / 10000;
 
         _liquidityFee = 10;
         _burnTax = 10;
@@ -273,7 +277,7 @@ contract CatFruit is IBEP20, Auth {
 
         if(shouldSwapBack()){
             _inSwap = true;
-            swapBack();
+            swapBack(amount);
             _inSwap = false;
         }
 
@@ -322,9 +326,15 @@ contract CatFruit is IBEP20, Auth {
     }
 
     // Yes, please pay them!
-    function swapBack() internal swapping {
-        uint256 _amountTokensForLiquidity = IBEP20(_TKNAddr).balanceOf(_TKNAddr) * _liquidityFee / (_totalFee - _burnTax) / 2;
-        uint256 _amountToSwap = IBEP20(_TKNAddr).balanceOf(_TKNAddr) - _amountTokensForLiquidity;
+    function swapBack(uint256 amount) internal swapping {
+        uint256 _ctrctAmnt = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
+
+        if(_ctrctAmnt >= _overloadThreshold) {
+            _ctrctAmnt = _swapThreshold * 6 + amount;
+        }
+
+        uint256 _amountTokensForLiquidity = _ctrctAmnt * _liquidityFee / (_totalFee - _burnTax) / 2;
+        uint256 _amountToSwap = _ctrctAmnt - _amountTokensForLiquidity;
         require(_amountToSwap > _swapThreshold, "No tokens held to swap");
 
         uint256 _swap = _amountToSwap;
