@@ -113,7 +113,6 @@ contract CatFruit is IBEP20, Auth {
     uint256 private immutable _burnTax;
     uint256 private immutable _marketingFee;
     uint256 private immutable _devFee;
-    uint256 private immutable _salaryTax;
     /// Divide by 10 to get real tax percentage amount
     uint256 public immutable _totalFee;
     uint256 internal immutable _feeDenominator;
@@ -133,7 +132,6 @@ contract CatFruit is IBEP20, Auth {
     address internal immutable _WBNB;
     address internal immutable _ZERO;
     address internal immutable _DEV;
-    address internal immutable _Sal;
     address internal _marketing;
 
     address internal immutable _TKNAddr;
@@ -150,11 +148,10 @@ contract CatFruit is IBEP20, Auth {
         _overloadThreshold = _totalSupply * 75 / 10000;
 
         _liquidityFee = 10;
-        _burnTax = 10;
-        _salaryTax = 10;
+        _burnTax = 5;
         _marketingFee = 10;
-        _devFee = 5;
-        _totalFee = _marketingFee + _liquidityFee + _devFee + _burnTax + _salaryTax;
+        _devFee = 10;
+        _totalFee = _marketingFee + _liquidityFee + _devFee + _burnTax;
         _feeDenominator = 1000;
 
         _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
@@ -164,7 +161,6 @@ contract CatFruit is IBEP20, Auth {
 
         _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
         _marketing = 0x57df3692dcb8F9d8978A83289745C61f824C1603;
-        _Sal = 0xd23e9a721514732d62981D91fd3C54d59979F457;
 
         _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         //_router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -175,7 +171,6 @@ contract CatFruit is IBEP20, Auth {
         _isFeeExempt[owner] = true;
         _isFeeExempt[_ZERO] = true;
         _isFeeExempt[_TKNAddr] = true;
-        _isFeeExempt[_Sal] = true;
         _isFeeExempt[_DEV] = true;
         _isFeeExempt[_marketing] = true;
         _isFeeExempt[__autoLiquidityReceiver] = true;
@@ -364,7 +359,6 @@ contract CatFruit is IBEP20, Auth {
         uint256 _amountBNBLiquidity = _amountBNB * _liquidityFee / (_totalFee - _burnTax);
         uint256 _amountBNBMarketing = _amountBNB * _marketingFee / (_totalFee - _burnTax);
         uint256 _amountBNBDev = _amountBNB * _devFee / (_totalFee - _burnTax);
-        uint256 _amountBNBSalary = _amountBNB * _salaryTax / (_totalFee - _burnTax);
 
         uint256 _bnbL = _amountBNBLiquidity;
         _amountBNBLiquidity = 0;
@@ -374,8 +368,6 @@ contract CatFruit is IBEP20, Auth {
         _amountBNBDev = 0;
         uint256 _tokenL = TokensForLiqPool;
         TokensForLiqPool = 0;
-        uint256 _bnbS = _amountBNBSalary;
-        _amountBNBSalary = 0;
 
         _router.addLiquidityETH{value: _bnbL}(
             _TKNAddr,
@@ -389,7 +381,6 @@ contract CatFruit is IBEP20, Auth {
 
         payable(__marketingFeeReceiver).transfer(_bnbM);
         payable(_DEV).transfer(_bnbD);
-        payable(_Sal).transfer(_bnbS);
     }
 
     /// Clears the balance only within the contract.
