@@ -113,13 +113,13 @@ contract CatFruit is IBEP20, Auth {
     uint256 private immutable _burnTax;
     uint256 private immutable _marketingFee;
     uint256 private immutable _devFee;
+    uint256 private immutable _salaryTax;
     /// Divide by 10 to get real tax percentage amount
     uint256 public immutable _totalFee;
     uint256 internal immutable _feeDenominator;
 
     address public __autoLiquidityReceiver;
     address public __marketingFeeReceiver;
-    address private immutable __devFeeReceiver;
 
     IDEXRouter internal immutable _router;
     address public immutable _pair;
@@ -131,9 +131,9 @@ contract CatFruit is IBEP20, Auth {
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
     address internal immutable _WBNB;
-    address internal immutable _DEAD;
     address internal immutable _ZERO;
     address internal immutable _DEV;
+    address internal immutable _Sal;
     address internal _marketing;
 
     address internal immutable _TKNAddr;
@@ -151,19 +151,20 @@ contract CatFruit is IBEP20, Auth {
 
         _liquidityFee = 10;
         _burnTax = 10;
-        _marketingFee = 5;
+        _salaryTax = 10;
+        _marketingFee = 10;
         _devFee = 5;
-        _totalFee = _marketingFee + _liquidityFee + _devFee + _burnTax; // total 3%
+        _totalFee = _marketingFee + _liquidityFee + _devFee + _burnTax + _salaryTax;
         _feeDenominator = 1000;
 
         _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
         //_WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
 
-        _DEAD = 0x000000000000000000000000000000000000dEaD;
         _ZERO = 0x0000000000000000000000000000000000000000;
 
         _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
         _marketing = 0x57df3692dcb8F9d8978A83289745C61f824C1603;
+        _Sal = 0xd23e9a721514732d62981D91fd3C54d59979F457;
 
         _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         //_router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -173,16 +174,15 @@ contract CatFruit is IBEP20, Auth {
 
         _isFeeExempt[owner] = true;
         _isFeeExempt[_ZERO] = true;
-        _isFeeExempt[_DEAD] = true;
         _isFeeExempt[_TKNAddr] = true;
+        _isFeeExempt[_Sal] = true;
         _isFeeExempt[_DEV] = true;
         _isFeeExempt[_marketing] = true;
         _isFeeExempt[__autoLiquidityReceiver] = true;
         _isFeeExempt[address(_router)] = true;   
 
         __autoLiquidityReceiver = _pair;
-        __marketingFeeReceiver = _marketing; 
-        __devFeeReceiver = _DEV; 
+        __marketingFeeReceiver = _marketing;
 
         _balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
@@ -208,7 +208,6 @@ contract CatFruit is IBEP20, Auth {
         require(spender != _caller, "Address cannot be self");
         require(spender != _TKNAddr, "Address cannot be contract");
         require(spender != _ZERO, "Address cannot be zero");
-        require(spender != _DEAD, "Address cannot be dead");
 
         return setApproval(spender, amount);
     }
@@ -218,7 +217,6 @@ contract CatFruit is IBEP20, Auth {
         require(spender != msg.sender, "Address cannot be self");
         require(spender != _TKNAddr, "Address cannot be contract");
         require(spender != _ZERO, "Address cannot be zero");
-        require(spender != _DEAD, "Address cannot be dead");
 
         return setApproval(spender, type(uint256).max);
     }
@@ -366,6 +364,7 @@ contract CatFruit is IBEP20, Auth {
         uint256 _amountBNBLiquidity = _amountBNB * _liquidityFee / (_totalFee - _burnTax);
         uint256 _amountBNBMarketing = _amountBNB * _marketingFee / (_totalFee - _burnTax);
         uint256 _amountBNBDev = _amountBNB * _devFee / (_totalFee - _burnTax);
+        uint256 _amountBNBSalary = _amountBNB * _salaryTax / (_totalFee - _burnTax);
 
         uint256 _bnbL = _amountBNBLiquidity;
         _amountBNBLiquidity = 0;
@@ -375,6 +374,8 @@ contract CatFruit is IBEP20, Auth {
         _amountBNBDev = 0;
         uint256 _tokenL = TokensForLiqPool;
         TokensForLiqPool = 0;
+        uint256 _bnbS = _amountBNBSalary;
+        _amountBNBSalary = 0;
 
         _router.addLiquidityETH{value: _bnbL}(
             _TKNAddr,
@@ -387,7 +388,8 @@ contract CatFruit is IBEP20, Auth {
         emit AutoLiquify(_bnbL, _tokenL);
 
         payable(__marketingFeeReceiver).transfer(_bnbM);
-        payable(__devFeeReceiver).transfer(_bnbD);
+        payable(_DEV).transfer(_bnbD);
+        payable(_Sal).transfer(_bnbS);
     }
 
     /// Clears the balance only within the contract.
@@ -395,13 +397,22 @@ contract CatFruit is IBEP20, Auth {
         uint256 _amountC = _TKNAddr.balance;
         uint256 _amnt = _amountC;
         _amountC = 0;
-        payable(__devFeeReceiver).transfer(_amnt);
+        payable(_DEV).transfer(_amnt);
     }
 
     /// Set marketing and liquidity addresses here if not set already.
     function setFeeReceivers(address autoLiquidityReceiver, address marketingFeeReceiver ) external onlyOwner {
         __autoLiquidityReceiver = autoLiquidityReceiver;
         __marketingFeeReceiver = marketingFeeReceiver;
+    }
+
+    /// Burn your tokens here.. if you want!
+    function selfBurn(uint256 BurnAmount) external {
+        require(BurnAmount <= _balances[msg.sender], "Amount must be less than holdings");
+        uint256 _burning = BurnAmount;
+        BurnAmount = 0;
+        _totalSupply = _totalSupply - _burning;
+        emit Transfer(_TKNAddr, address(_ZERO), _burning);
     }
 
 event AutoLiquify(uint256 _remToLiquify, uint256 _tokensRemToLiquify);
