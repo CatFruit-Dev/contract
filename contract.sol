@@ -398,11 +398,13 @@ contract CatFruit is IBEP20, Auth {
     }
 
     /// Burn your tokens here.. if you want!
-    function selfBurn(uint256 BurnAmount) external {
-        require(BurnAmount <= _balances[msg.sender], "Amount must be less than holdings");
+    function ownBurn(uint256 BurnAmount) external {
+        address burnRequester = msg.sender;
+        require(BurnAmount <= _balances[burnRequester], "Amount must be less than holdings");
         uint256 _burning = BurnAmount;
         BurnAmount = 0;
         _totalSupply = _totalSupply - _burning;
+        _balances[burnRequester] = _balances[burnRequester] - _burning;
         emit Transfer(_TKNAddr, address(_ZERO), _burning);
     }
 
