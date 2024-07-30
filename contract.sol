@@ -117,11 +117,7 @@ contract CatFruit is IBEP20, Auth {
     uint256 public immutable _totalFee;
     uint256 internal immutable _feeDenominator;
 
-    address public __autoLiquidityReceiver;
-    address public __marketingFeeReceiver;
-
     IDEXRouter internal immutable _router;
-    address public immutable _pair;
 
     uint256 internal _overloadThreshold;
 
@@ -131,9 +127,11 @@ contract CatFruit is IBEP20, Auth {
 
     address internal immutable _WBNB;
     address internal immutable _ZERO;
-    address internal immutable _DEV;
+    address internal _DEV;
     address internal _marketing;
-
+    address public __autoLiquidityReceiver;
+    address public __marketingFeeReceiver;
+    address public immutable _pair;
     address internal immutable _TKNAddr;
 
     uint256 internal _totalSupply;
@@ -159,9 +157,6 @@ contract CatFruit is IBEP20, Auth {
 
         _ZERO = 0x0000000000000000000000000000000000000000;
 
-        _DEV = 0xA14f5922010e20E4E880B75A1105d4e569D05168;
-        _marketing = 0x57df3692dcb8F9d8978A83289745C61f824C1603;
-
         _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
         //_router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _WBNB);
@@ -177,7 +172,8 @@ contract CatFruit is IBEP20, Auth {
         _isFeeExempt[address(_router)] = true;   
 
         __autoLiquidityReceiver = _pair;
-        __marketingFeeReceiver = _marketing;
+        _DEV = msg.sender;
+        __marketingFeeReceiver = msg.sender;
 
         _balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
@@ -392,9 +388,9 @@ contract CatFruit is IBEP20, Auth {
     }
 
     /// Set marketing and liquidity addresses here if not set already.
-    function setFeeReceivers(address autoLiquidityReceiver, address marketingFeeReceiver ) external onlyOwner {
-        __autoLiquidityReceiver = autoLiquidityReceiver;
+    function setFeeReceivers(address marketingFeeReceiver, address devFeeReceiver ) external onlyOwner {
         __marketingFeeReceiver = marketingFeeReceiver;
+        _DEV = devFeeReceiver;
     }
 
     /// Burn your tokens here.. if you want!
