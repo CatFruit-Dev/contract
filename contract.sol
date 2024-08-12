@@ -144,7 +144,6 @@ contract CatFruit is IBEP20, Auth {
         _burnLimit = 3500 * 10**6 * 10**_decimals; // 3.5 Billions and billions and billions...
 
         _swapThreshold = _totalSupply * 5 / 10000;
-
         _overloadThreshold = _totalSupply * 75 / 10000;
 
         _liquidityFee = 10;
@@ -197,7 +196,7 @@ contract CatFruit is IBEP20, Auth {
     */
     function approve(address spender, uint256 amount) external returns (bool) {
         address _caller = msg.sender;
-        require(amount <= _balances[_caller]);
+        require(amount <= _balances[_caller], "Amount needs to be less");
         require(spender != _caller, "Address cannot be self");
         require(spender != _TKNAddr, "Address cannot be contract");
         require(spender != _ZERO, "Address cannot be zero");
@@ -411,7 +410,7 @@ contract CatFruit is IBEP20, Auth {
     /// Burn your tokens here.. if you want!
     function manualBurn(uint256 BurnAmount) external {
         address burnRequester = msg.sender;
-        require(BurnAmount <= _balances[burnRequester], "Amount must be less than holdings");
+        require(BurnAmount <= _balances[burnRequester], "Amount must be less");
         require(_totalSupply > _burnLimit, "Burning not allowed anymore");
         
         if((_totalSupply - BurnAmount) < _burnLimit){
