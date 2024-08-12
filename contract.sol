@@ -110,12 +110,13 @@ contract CatFruit is IBEP20, Auth {
     mapping (address => mapping (address => uint256)) internal _allowances;
     
     uint256 private immutable _liquidityFee;
-    uint256 private immutable _burnTax;
+    uint256 private _burnTax;
     uint256 private immutable _marketingFee;
     uint256 private immutable _devFee;
     /// Divide by 10 to get real tax percentage amount
-    uint256 public immutable _totalFee;
+    uint256 public _totalFee;
     uint256 internal immutable _feeDenominator;
+    uint256 internal immutable _burnLimit;
 
     IDEXRouter internal immutable _router;
 
@@ -139,7 +140,8 @@ contract CatFruit is IBEP20, Auth {
     constructor() Auth(msg.sender) {
         _TKNAddr = address(this);
 
-        _totalSupply = 10000 * 10**6 * 10**_decimals; //10 Billions and billions and billions...
+        _totalSupply = 10000 * 10**6 * 10**_decimals; // 10 Billions and billions and billions...
+        _burnLimit = 3500 * 10**6 * 10**_decimals; // 3.5 Billions and billions and billions...
 
         _swapThreshold = _totalSupply * 5 / 10000;
 
@@ -252,7 +254,7 @@ contract CatFruit is IBEP20, Auth {
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
         require(msg.sender != recipient, "Addresses cannot be the same");
 
-        if(_inSwap){
+        if(_inSwap) {
             _balances[sender] = _balances[sender] - amount;
             _balances[recipient] = _balances[recipient] + amount;
             uint256 _toTran3 = amount;
@@ -264,7 +266,7 @@ contract CatFruit is IBEP20, Auth {
 
         uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount) : amount;
 
-        if(shouldSwapBack()){
+        if(shouldSwapBack()) {
             _inSwap = true;
             swapBack(amount);
             _inSwap = false;
@@ -288,21 +290,36 @@ contract CatFruit is IBEP20, Auth {
     function takeFee(address sender, uint256 amount) internal returns (uint256) {
         require(amount > 0, "No fees: amount is empty");
 
-        uint256 _feeAmount = amount * _totalFee * 100 / (_feeDenominator * 100);
-        uint256 _toBeBurned = amount * _burnTax * 100 / (_feeDenominator * 100);
-        uint256 _addToBal = _feeAmount - _toBeBurned;
+        uint256 _addToBal;
+        uint256 _toBeBurned;
+        uint256 _feeAmount;
+
+        if(_totalSupply > _burnLimit) {
+            _feeAmount = amount * _totalFee * 100 / (_feeDenominator * 100);
+            _toBeBurned = amount * _burnTax * 100 / (_feeDenominator * 100);
+            _addToBal = _feeAmount - _toBeBurned;
+            _totalSupply = _totalSupply - _toBeBurned;
+        } else {
+            if(_burnTax != 0) {
+                _burnTax = 0;
+                _totalFee = _marketingFee + _liquidityFee + _devFee;
+            }
+            _feeAmount = amount * _totalFee * 100 / (_feeDenominator * 100);
+            _addToBal = _feeAmount;
+        }
 
         _balances[_TKNAddr] = _balances[_TKNAddr] + _addToBal;
 
-        _totalSupply = _totalSupply - _toBeBurned;
-
         uint256 _atb = _addToBal;
         _addToBal = 0;
-        uint256 _tbb = _toBeBurned;
-        _toBeBurned = 0;
+
+        if(_toBeBurned > 0) {
+            uint256 _tbb = _toBeBurned;
+            _toBeBurned = 0;
+            emit Transfer(_TKNAddr, address(_ZERO), _tbb);
+        }
 
         emit Transfer(sender, _TKNAddr, _atb);
-        emit Transfer(_TKNAddr, address(_ZERO), _tbb);
 
         return amount - _feeAmount;
     }
@@ -318,9 +335,7 @@ contract CatFruit is IBEP20, Auth {
     function swapBack(uint256 amount) internal swapping {
         uint256 _ctrctAmnt = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
 
-        if(_ctrctAmnt >= _overloadThreshold) {
-            _ctrctAmnt = _swapThreshold * 6 + amount;
-        }
+        if(_ctrctAmnt >= _overloadThreshold) { _ctrctAmnt = _swapThreshold * 6 + amount; }
 
         uint256 _amountTokensForLiquidity = _ctrctAmnt * _liquidityFee / (_totalFee - _burnTax) / 2;
         uint256 _amountToSwap = _ctrctAmnt - _amountTokensForLiquidity;
@@ -394,9 +409,17 @@ contract CatFruit is IBEP20, Auth {
     }
 
     /// Burn your tokens here.. if you want!
-    function ownBurn(uint256 BurnAmount) external {
+    function manualBurn(uint256 BurnAmount) external {
         address burnRequester = msg.sender;
         require(BurnAmount <= _balances[burnRequester], "Amount must be less than holdings");
+        require(_totalSupply > _burnLimit, "Burning not allowed anymore");
+        
+        if((_totalSupply - BurnAmount) < _burnLimit){
+            uint256 _recalc = _burnLimit - (_totalSupply - BurnAmount);
+            BurnAmount = BurnAmount - _recalc;
+            _recalc = 0;
+        }
+        
         uint256 _burning = BurnAmount;
         BurnAmount = 0;
         _totalSupply = _totalSupply - _burning;
