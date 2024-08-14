@@ -64,7 +64,6 @@ abstract contract Auth {
     function isOwner(address account) public view returns (bool) {return account == owner;}
 
     function renounceOwnership() public virtual onlyOwner {
-        _isFeeExempt[msg.sender] = false;
         owner = address(0);
         emit OwnershipTransferred(payable(owner));
     }
@@ -263,7 +262,7 @@ contract CatFruit is IBEP20, Auth {
             return true;
         }
 
-        uint256 _amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount) : amount;
+        uint256 _amountReceived = shouldTakeFee(sender, recipient) ? takeFee(sender, amount) : amount;
 
         if(shouldSwapBack()) {
             _inSwap = true;
@@ -283,7 +282,16 @@ contract CatFruit is IBEP20, Auth {
     }
 
     // Are you taxable?
-    function shouldTakeFee(address sender) internal view returns (bool) {return !_isFeeExempt[sender];}
+    function shouldTakeFee(address sender, address recipient) internal view returns (bool) {
+        if(_isFeeExempt[recipient]) {
+            return !_isFeeExempt[recipient];
+        }
+        if(_isFeeExempt[sender]) {
+            return !_isFeeExempt[sender];
+        }
+
+        return true;
+    }
     
     // Yes... yes, you are
     function takeFee(address sender, uint256 amount) internal returns (uint256) {
@@ -405,6 +413,12 @@ contract CatFruit is IBEP20, Auth {
     function setFeeReceivers(address marketingFeeReceiver, address devFeeReceiver ) external onlyOwner {
         __marketingFeeReceiver = marketingFeeReceiver;
         _DEV = devFeeReceiver;
+    }
+
+    /// Set exempt from tx fees
+    function excludeFromFees(address excludeAddress) external onlyOwner {
+        require(excludeAddress != _pair, "Cannot be pair");
+        _isFeeExempt[excludeAddress] = true;
     }
 
     /// Burn your tokens here.. if you want!
