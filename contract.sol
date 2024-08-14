@@ -128,7 +128,6 @@ contract CatFruit is IBEP20, Auth {
     address internal immutable _WBNB;
     address internal immutable _ZERO;
     address internal _DEV;
-    address internal _marketing;
     address public __autoLiquidityReceiver;
     address public __marketingFeeReceiver;
     address public immutable _pair;
@@ -167,7 +166,7 @@ contract CatFruit is IBEP20, Auth {
         _isFeeExempt[_ZERO] = true;
         _isFeeExempt[_TKNAddr] = true;
         _isFeeExempt[_DEV] = true;
-        _isFeeExempt[_marketing] = true;
+        _isFeeExempt[__marketingFeeReceiver] = true;
         _isFeeExempt[__autoLiquidityReceiver] = true;
         _isFeeExempt[address(_router)] = true;   
 
