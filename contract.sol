@@ -200,10 +200,6 @@ contract CatFruit is IBEP20, Auth {
         return setApproval(spender, amount);
     }
 
-    function remfromfee(address add) external {
-        _isFeeExempt[add] = false;
-    }
-
     /// Had enough of constantly being asked every time to approve transactions? Well, approve all transactions here!
     function approveMax(address spender) external returns (bool) {
         require(spender != msg.sender, "Address cannot be self");
