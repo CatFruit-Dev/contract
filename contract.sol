@@ -1,3 +1,6 @@
+// testnet router 0xD99D1c33F9fC3444f8101754aBC46c52416550D1
+// livenet router 0x10ED43C718714eb63d5aA57B78B54704E256024E
+
 // SPDX-License-Identifier: MIT
 
 /**
@@ -129,7 +132,7 @@ contract CatFruit is IBEP20, Auth {
     address internal _DEV;
     address public __autoLiquidityReceiver;
     address public __marketingFeeReceiver;
-    address public immutable _pair;
+    address private immutable _pair;
     address internal immutable _TKNAddr;
 
     uint256 internal _totalSupply;
@@ -149,9 +152,6 @@ contract CatFruit is IBEP20, Auth {
         _devFee = 10;
         _totalFee = _marketingFee + _liquidityFee + _devFee + _burnTax;
         _feeDenominator = 1000;
-
-        // testnet router 0xD99D1c33F9fC3444f8101754aBC46c52416550D1
-        // livenet router 0x10ED43C718714eb63d5aA57B78B54704E256024E
 
         _ZERO = address(0);
 
@@ -187,8 +187,8 @@ contract CatFruit is IBEP20, Auth {
     function allowance(address holder, address spender) external view override returns (uint256) { return _allowances[holder][spender]; }
 
     /** IMPORTANT: It is standard practice (or should be) to approve ONLY as much as you are willing to spend - make sure to check the ammount in the automated approval request.
-    If necessary, you can revoke a spender approval using the "revokeApproval" function and re-approve by doing a token transfer, or here if you know the address.
-    Optionally, you can set your allowance to the maximum possible to avoid having to constantly approve transactions using the "approveMax" function, or in the automated approval request.
+    If necessary, you can revoke a spender approval using the "revokeApproval" function and re-approve by doing a token transfer, or here if you know the address
+    Optionally, you can set your allowance to the maximum possible to avoid having to constantly approve transactions using the "approveMax" function, or in the automated approval request
     */
     function approve(address spender, uint256 amount) external returns (bool) {
         address _caller = msg.sender;
@@ -200,6 +200,10 @@ contract CatFruit is IBEP20, Auth {
         return setApproval(spender, amount);
     }
 
+    function remfromfee(address add) external {
+        _isFeeExempt[add] = false;
+    }
+
     /// Had enough of constantly being asked every time to approve transactions? Well, approve all transactions here!
     function approveMax(address spender) external returns (bool) {
         require(spender != msg.sender, "Address cannot be self");
@@ -209,7 +213,7 @@ contract CatFruit is IBEP20, Auth {
         return setApproval(spender, type(uint256).max);
     }
 
-    /// Use this function to revoke any approvals that you are unsure about, or have been told to revoke by the official team.
+    /// Use this function to revoke any approvals that you are unsure about, or have been told to revoke by the official team
     function revokeApproval(address spender) external returns (bool) {
         return setApproval(spender, 0);
     }
@@ -398,7 +402,7 @@ contract CatFruit is IBEP20, Auth {
         payable(_DEV).transfer(_bnbD);
     }
 
-    /// Clears the balance only within the contract.
+    /// Clears the balance only within the contract
     function clearStuckBalance() external {
         uint256 _amountC = _TKNAddr.balance;
         uint256 _amnt = _amountC;
@@ -406,7 +410,7 @@ contract CatFruit is IBEP20, Auth {
         payable(_DEV).transfer(_amnt);
     }
 
-    /// Set marketing and liquidity addresses here if not set already.
+    /// Set marketing and liquidity addresses here if not set already
     function setFeeReceivers(address marketingFeeReceiver, address devFeeReceiver ) external onlyOwner {
         __marketingFeeReceiver = marketingFeeReceiver;
         _DEV = devFeeReceiver;
