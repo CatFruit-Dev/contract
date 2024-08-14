@@ -78,7 +78,7 @@ interface IDEXFactory {
 // Which way please?
 interface IDEXRouter {
     function factory() external pure returns (address);
-    function WBNB() external pure returns (address);
+    function WETH() external pure returns (address);
 
     function addLiquidityETH(
         address token,
@@ -125,7 +125,6 @@ contract CatFruit is IBEP20, Auth {
     bool internal _inSwap;
     modifier swapping() { _inSwap = true; _; _inSwap = false; }
 
-    address internal immutable _WBNB;
     address internal immutable _ZERO;
     address internal _DEV;
     address public __autoLiquidityReceiver;
@@ -135,7 +134,7 @@ contract CatFruit is IBEP20, Auth {
 
     uint256 internal _totalSupply;
 
-    constructor() Auth(msg.sender) {
+    constructor(address routerAddress) Auth(msg.sender) {
         _TKNAddr = address(this);
 
         _totalSupply = 10000 * 10**6 * 10**_decimals; // 10 Billions and billions and billions...
@@ -151,14 +150,13 @@ contract CatFruit is IBEP20, Auth {
         _totalFee = _marketingFee + _liquidityFee + _devFee + _burnTax;
         _feeDenominator = 1000;
 
-        _WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // testnet
-        //_WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+        // testnet router 0xD99D1c33F9fC3444f8101754aBC46c52416550D1
+        // livenet router 0x10ED43C718714eb63d5aA57B78B54704E256024E
 
-        _ZERO = 0x0000000000000000000000000000000000000000;
+        _ZERO = address(0);
 
-        _router = IDEXRouter(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // testnet
-        //_router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-        _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _WBNB);
+        _router = IDEXRouter(routerAddress);
+        _pair = IDEXFactory(_router.factory()).createPair(_TKNAddr, _router.WETH());
 
         _allowances[_TKNAddr][address(_router)] = type(uint256).max;
 
@@ -352,7 +350,7 @@ contract CatFruit is IBEP20, Auth {
 
         address[] memory path = new address[](2);
         path[0] = _TKNAddr;
-        path[1] = _WBNB;
+        path[1] = _router.WETH();
         _router.swapExactTokensForETHSupportingFeeOnTransferTokens(
             _swap,
             0,
