@@ -418,11 +418,12 @@ contract CatFruit is IBEP20, Auth {
         _isFeeExempt[excludeAddress] = true;
     }
 
-    /// Burn your tokens here.. if you want!
+    /// Burn your tokens here.. if you want! (max 1M per TX)
     function manualBurn(uint256 BurnAmount) external {
         address burnRequester = msg.sender;
         require(BurnAmount <= _balances[burnRequester], "Amount must be less");
         require(_totalSupply > _burnLimit, "Burning not allowed anymore");
+        require(BurnAmount <= 1000000, "Cannot burn more than 1M");
         
         if((_totalSupply - BurnAmount) < _burnLimit){
             uint256 _recalc = _burnLimit - (_totalSupply - BurnAmount);
