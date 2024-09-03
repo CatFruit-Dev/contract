@@ -258,10 +258,11 @@ contract CatFruit is IBEP20, Auth {
 
         uint256 _amountReceived = shouldTakeFee(sender, recipient) ? takeFee(sender, amount) : amount;
 
+        _swapThreshold = _totalSupply * 5 / 10000;
+        _overloadThreshold = _totalSupply * 75 / 10000;
+
         if(shouldSwapBack()) {
             _inSwap = true;
-            _swapThreshold = _totalSupply * 5 / 10000;
-            _overloadThreshold = _totalSupply * 75 / 10000;
             swapBack(amount);
             _inSwap = false;
         }
