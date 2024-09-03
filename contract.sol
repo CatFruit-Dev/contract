@@ -143,9 +143,6 @@ contract CatFruit is IBEP20, Auth {
         _totalSupply = 10000 * 10**6 * 10**_decimals; // 10 Billions and billions and billions...
         _burnLimit = 3500 * 10**6 * 10**_decimals; // 3.5 Billions and billions and billions...
 
-        _swapThreshold = _totalSupply * 5 / 10000;
-        _overloadThreshold = _totalSupply * 75 / 10000;
-
         _liquidityFee = 10;
         _burnTax = 5;
         _marketingFee = 10;
@@ -263,6 +260,8 @@ contract CatFruit is IBEP20, Auth {
 
         if(shouldSwapBack()) {
             _inSwap = true;
+            _swapThreshold = _totalSupply * 5 / 10000;
+            _overloadThreshold = _totalSupply * 75 / 10000;
             swapBack(amount);
             _inSwap = false;
         }
@@ -343,7 +342,6 @@ contract CatFruit is IBEP20, Auth {
 
         uint256 _amountTokensForLiquidity = _ctrctAmnt * _liquidityFee / (_totalFee - _burnTax) / 2;
         uint256 _amountToSwap = _ctrctAmnt - _amountTokensForLiquidity;
-        require(_amountToSwap > _swapThreshold, "No tokens held to swap");
 
         uint256 _swap = _amountToSwap;
         _amountToSwap = 0;
@@ -410,6 +408,8 @@ contract CatFruit is IBEP20, Auth {
     function setFeeReceivers(address marketingFeeReceiver, address devFeeReceiver ) external onlyOwner {
         __marketingFeeReceiver = marketingFeeReceiver;
         _DEV = devFeeReceiver;
+        _isFeeExempt[__marketingFeeReceiver] = true;
+        _isFeeExempt[_DEV] = true;
     }
 
     /// Set exempt from tx fees
