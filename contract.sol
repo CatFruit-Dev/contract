@@ -263,7 +263,7 @@ contract CatFruit is IBEP20, Auth {
 
         if(shouldSwapBack()) {
             _inSwap = true;
-            swapBack(amount);
+            swapBack();
             _inSwap = false;
         }
 
@@ -336,7 +336,7 @@ contract CatFruit is IBEP20, Auth {
     }
 
     // Yes, please pay them!
-    function swapBack(uint256 amount) internal swapping {
+    function swapBack() internal swapping {
         uint256 _ctrctAmnt = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
 
         if(_ctrctAmnt >= _overloadThreshold) { _ctrctAmnt = _swapThreshold * 6; }
