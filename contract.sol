@@ -339,7 +339,7 @@ contract CatFruit is IBEP20, Auth {
     function swapBack(uint256 amount) internal swapping {
         uint256 _ctrctAmnt = IBEP20(_TKNAddr).balanceOf(_TKNAddr);
 
-        if(_ctrctAmnt >= _overloadThreshold) { _ctrctAmnt = _swapThreshold * 6 + amount; }
+        if(_ctrctAmnt >= _overloadThreshold) { _ctrctAmnt = _swapThreshold * 6; }
 
         uint256 _amountTokensForLiquidity = _ctrctAmnt * _liquidityFee / (_totalFee - _burnTax) / 2;
         uint256 _amountToSwap = _ctrctAmnt - _amountTokensForLiquidity;
@@ -424,7 +424,7 @@ contract CatFruit is IBEP20, Auth {
         address burnRequester = msg.sender;
         require(BurnAmount <= _balances[burnRequester], "Amount must be less");
         require(_totalSupply > _burnLimit, "Burning not allowed anymore");
-        require(BurnAmount <= 1000000000000000, "Cannot burn more than 1M");
+        require(BurnAmount <= 1000000 * 10**_decimals, "Cannot burn more than 1M");
         
         if((_totalSupply - BurnAmount) < _burnLimit){
             uint256 _recalc = _burnLimit - (_totalSupply - BurnAmount);
